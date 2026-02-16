@@ -24,6 +24,7 @@ eggs/
 .eggs/
 lib/
 lib64/
+lib64
 parts/
 sdist/
 var/
@@ -33,6 +34,11 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Virtual environment files
+bin/
+include/
+pyvenv.cfg
 
 # PyInstaller
 *.manifest
