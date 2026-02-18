@@ -11,6 +11,18 @@
 #define ENCODER_A 44  // Green wire
 #define ENCODER_B 43  // Yellow wire
 
+// Duty cycle limit: motor rated 6V, powered from ~8V (2S Li-ion)
+// 8V × 0.75 = 6V effective
+#define MAX_DUTY_PERCENT 75
+
+// Pi UART pins (Serial1)
+#define PI_RX 41
+#define PI_TX 42
+
+// Timing
+#define WATCHDOG_TIMEOUT_MS 200
+#define STATUS_INTERVAL_MS 20   // ~50Hz status reports
+
 // Direction definitions
 #define FORWARD 1
 #define BACKWARD 2

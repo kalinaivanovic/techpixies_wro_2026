@@ -2,11 +2,78 @@
 #include "motor.h"
 #include "steering.h"
 
+// Current commanded values (for status reporting)
+static int currentSpeed = 0;    // -100..100
+static int currentSteer = 90;   // 0..180
+
+// Timing
+static unsigned long lastCommandTime = 0;
+static unsigned long lastStatusTime = 0;
+static bool watchdogTripped = false;
+
+// Line buffer for Pi commands
+static char cmdBuf[64];
+static uint8_t cmdLen = 0;
+
+// Parse and execute a complete command line
+void handleCommand(const char* line)
+{
+  lastCommandTime = millis();
+  watchdogTripped = false;
+
+  if (line[0] == 'C' && line[1] == ':') {
+    // C:<speed>,<steer>\n
+    int speed = 0;
+    int steer = 90;
+    if (sscanf(line + 2, "%d,%d", &speed, &steer) == 2) {
+      // Clamp values
+      if (speed < -100) speed = -100;
+      if (speed > 100) speed = 100;
+      if (steer < 0) steer = 0;
+      if (steer > 180) steer = 180;
+
+      currentSpeed = speed;
+      currentSteer = steer;
+
+      // Apply steering
+      steering_set(steer);
+
+      // Apply motor
+      if (speed > 0) {
+        motor_forward((uint8_t)speed);
+      } else if (speed < 0) {
+        motor_backward((uint8_t)(-speed));
+      } else {
+        motor_stop();
+      }
+
+      Serial.printf("[CMD] speed=%d steer=%d\n", speed, steer);
+    } else {
+      Serial.printf("[ERR] Bad C cmd: %s\n", line);
+    }
+
+  } else if (line[0] == 'E' && (line[1] == '\0' || line[1] == '\n')) {
+    // E\n — emergency stop
+    motor_stop();
+    steering_center();
+    currentSpeed = 0;
+    currentSteer = STEERING_CENTER;
+    Serial.println("[CMD] Emergency stop");
+
+  } else if (line[0] == 'R' && (line[1] == '\0' || line[1] == '\n')) {
+    // R\n — reset encoder
+    encoder_reset();
+    Serial.println("[CMD] Encoder reset");
+
+  } else {
+    Serial.printf("[ERR] Unknown cmd: %s\n", line);
+  }
+}
+
 void setup()
 {
+  // USB serial for debug
   Serial.begin(115200);
-
-  // Wait for serial connection
   unsigned long startWait = millis();
   while (!Serial && (millis() - startWait < 3000)) {
     delay(100);
@@ -14,27 +81,63 @@ void setup()
 
   Serial.println("ESP32-S3 Robot Controller Starting...");
 
-  // Initialize motor
+  // Pi UART on GPIO 41(RX) / 42(TX)
+  Serial1.begin(115200, SERIAL_8N1, PI_RX, PI_TX);
+
   Serial.println("Initializing motor...");
   motor_init();
 
-  // Initialize steering servo
   Serial.println("Initializing steering servo...");
   steering_init();
 
-  Serial.println("Setup complete. Waiting for commands from Raspberry Pi...");
+  lastCommandTime = millis();
+  lastStatusTime = millis();
+
+  Serial.println("Setup complete. Listening on Serial1 for Pi commands.");
 }
 
 void loop()
 {
-  // TODO: Implement communication protocol with Raspberry Pi
-  // TODO: Implement watchdog - stop motors if no command received
+  unsigned long now = millis();
 
-  // Check for motor stall
-  if (check_stall()) {
-    Serial.println("STALL DETECTED - stopping motor!");
-    motor_stop();
+  // --- Read commands from Pi (Serial1) ---
+  while (Serial1.available()) {
+    char c = Serial1.read();
+    if (c == '\n' || c == '\r') {
+      if (cmdLen > 0) {
+        cmdBuf[cmdLen] = '\0';
+        handleCommand(cmdBuf);
+        cmdLen = 0;
+      }
+    } else if (cmdLen < sizeof(cmdBuf) - 1) {
+      cmdBuf[cmdLen++] = c;
+    } else {
+      // Buffer overflow — discard
+      cmdLen = 0;
+    }
   }
 
-  delay(10);
+  // --- Watchdog: stop motor if no command within timeout ---
+  if (!watchdogTripped && (now - lastCommandTime > WATCHDOG_TIMEOUT_MS)) {
+    motor_stop();
+    currentSpeed = 0;
+    watchdogTripped = true;
+    Serial.println("[WDG] No command — motor stopped");
+  }
+
+  // --- Stall detection ---
+  if (check_stall()) {
+    motor_stop();
+    currentSpeed = 0;
+    // Report stall to Pi
+    Serial1.println("E:STALL");
+    Serial.println("[ERR] STALL DETECTED");
+  }
+
+  // --- Status reporting to Pi (~50Hz) ---
+  if (now - lastStatusTime >= STATUS_INTERVAL_MS) {
+    lastStatusTime = now;
+    long enc = encoder_read();
+    Serial1.printf("S:%ld,%d,%d\n", enc, currentSpeed, currentSteer);
+  }
 }

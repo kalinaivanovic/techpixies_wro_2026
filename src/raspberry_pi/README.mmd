@@ -1,0 +1,307 @@
+'''mermaid
+classDiagram                                                                                                                             
+      %% ── SENSOR LAYER ──                                                                                                                
+      class Lidar {                                                                                                                        
+          -dict~int, float~ _scan                                                                                                          
+          -dict~int, float~ _scan_quality                                                                                                  
+          -bool _running                                                                                                                   
+          +start() bool                                                                                                                    
+          +stop()
+          +get_scan() dict~int, float~
+          +get_front() float
+          +get_left() float
+          +get_right() float
+          +get_jpeg_frame() bytes
+          +get_jpeg_raw() bytes
+      }
+
+      class Camera {
+          -list~ColorBlob~ _blobs
+          -ndarray _frame
+          -bool _running
+          +start() bool
+          +stop()
+          +get_blobs() list~ColorBlob~
+          +get_frame() ndarray
+          +get_red_blobs() list~ColorBlob~
+          +get_green_blobs() list~ColorBlob~
+          +get_magenta_blobs() list~ColorBlob~
+          +get_jpeg_frame() bytes
+          +get_jpeg_mask(color) bytes
+      }
+
+      class ColorBlob {
+          +str color
+          +float angle
+          +int x
+          +int y
+          +int width
+          +int height
+          +int area
+      }
+
+      class Motor {
+          -int _speed
+          -int _steering
+          -int _encoder
+          +connect()
+          +drive(speed, steering)
+          +stop()
+          +emergency_stop()
+          +reset_encoder()
+          +update()
+          +encoder int
+      }
+
+      class LidarCluster {
+          +float angle
+          +float distance_mm
+          +float width_mm
+          +int area_px
+          +tuple bbox_tl
+          +tuple bbox_br
+          +tuple centroid_px
+      }
+
+      %% ── STRATEGIES ──
+      class ClusteringStrategy {
+          <<abstract>>
+          +find_objects(scan)* list~DetectedObject~
+      }
+
+      class OpenCVClustering {
+          +int image_size
+          +int max_range
+          +int dilate_kernel
+          +float pillar_max_width
+          +find_objects(scan) list~DetectedObject~
+      }
+
+      class RawScanClustering {
+          +int angle_gap
+          +int distance_diff
+          +int min_points
+          +find_objects(scan) list~DetectedObject~
+      }
+
+      class DetectedObject {
+          +float angle
+          +float distance
+          +float width
+          +str obj_type
+      }
+
+      class WallDetectionStrategy {
+          <<abstract>>
+          +detect_walls(scan)* WallInfo
+      }
+
+      class AverageWallDetection {
+          +int left_angle
+          +int right_angle
+          +int front_angle
+          +int side_window
+          +int front_window
+          +detect_walls(scan) WallInfo
+      }
+
+      class CornerStrategy {
+          <<abstract>>
+          +detect(scan)* Optional~str~
+          +compute(direction, world)* tuple~int, int~
+      }
+
+      class LidarCornerDetection {
+          +int threshold
+          +int slow_speed
+          +int turn_offset
+          +detect(scan) Optional~str~
+          +compute(direction, world) tuple~int, int~
+      }
+
+      class WallFollowStrategy {
+          <<abstract>>
+          +compute(world)* tuple~int, int~
+      }
+
+      class ProportionalWallFollow {
+          +float kp
+          +int normal_speed
+          +int min_clearance
+          +compute(world) tuple~int, int~
+      }
+
+      class AvoidanceStrategy {
+          <<abstract>>
+          +compute(pillar, world)* tuple~int, int~
+      }
+
+      class ProportionalAvoidance {
+          +int slow_speed
+          +int max_steer_offset
+          +float max_distance
+          +compute(pillar, world) tuple~int, int~
+      }
+
+      class ParkingStrategy {
+          <<abstract>>
+          +compute(world)* tuple~int, int~
+          +is_complete()* bool
+          +reset()* void
+      }
+
+      %% ── PERCEPTION LAYER ──
+      class SensorFusion {
+          -Lidar lidar
+          -Camera camera
+          -callable get_encoder
+          -ClusteringStrategy clustering
+          -CornerStrategy corner
+          -WallDetectionStrategy wall_detection
+          +update() WorldState
+          -_match_pillars(objects, blobs) list~Pillar~
+          -_detect_parking(blobs, scan) Optional~float~
+      }
+
+      class WorldState {
+          +float timestamp
+          +int encoder_pos
+          +WallInfo walls
+          +list~Pillar~ pillars
+          +Optional~str~ corner_ahead
+          +Optional~float~ parking_marker
+          +corridor_width Optional~float~
+          +has_pillars bool
+          +closest_pillar Optional~Pillar~
+          +blocking_pillar Optional~Pillar~
+          +is_corner_approaching bool
+          +is_parking_visible bool
+      }
+
+      class WallInfo {
+          +Optional~float~ left_distance
+          +Optional~float~ right_distance
+          +Optional~float~ front_distance
+          +corridor_width Optional~float~
+      }
+
+      class Pillar {
+          +str color
+          +float angle
+          +float distance
+          +pass_side str
+          +is_blocking(threshold) bool
+      }
+
+      class TrackMap {
+          +Optional~str~ direction
+          +list~Corner~ corners
+          +list~Section~ sections
+          +list~PillarRecord~ pillars
+          +Optional~tuple~ parking_zone
+          +Optional~int~ lap_length
+          +is_first_lap bool
+          +corner_count int
+          +update(world)
+          +get_next_corner(encoder)
+          +get_expected_pillars(encoder, lookahead)
+          +get_section_width(encoder)
+          +get_distance_to_parking(encoder)
+          +should_prepare_parking(encoder, lap_count)
+      }
+
+      class Corner {
+          +int encoder_pos
+          +str direction
+      }
+
+      class Section {
+          +int start_encoder
+          +int end_encoder
+          +float width
+      }
+
+      class PillarRecord {
+          +int encoder_pos
+          +str color
+          +str side
+          +float angle
+      }
+
+      %% ── DECISION LAYER ──
+      class RobotState {
+          <<enumeration>>
+          IDLE
+          WALL_FOLLOW
+          AVOID_PILLAR
+          CORNER
+          PARKING
+          DONE
+      }
+
+      class StateMachine {
+          +RobotState state
+          +int lap_count
+          +int target_laps
+          +Optional~str~ direction
+          +start()
+          +stop()
+          +decide(world, track_map) tuple~int, int~
+          -_check_transitions(world, track_map)
+          -_wall_follow(world)
+          -_avoid_pillar(world)
+          -_handle_corner(world)
+          -_parking(world)
+      }
+
+      %% ── CONTROL LAYER ──
+      class Controller {
+          -Motor motor
+          -Lidar lidar
+          -Camera camera
+          -SensorFusion fusion
+          -TrackMap track_map
+          -StateMachine state_machine
+          +run()
+          +shutdown()
+      }
+
+      %% ── RELATIONSHIPS ──
+
+      Camera --> ColorBlob : produces
+      Lidar --> LidarCluster : produces
+
+      ClusteringStrategy <|-- OpenCVClustering
+      ClusteringStrategy <|-- RawScanClustering
+      WallDetectionStrategy <|-- AverageWallDetection
+      CornerStrategy <|-- LidarCornerDetection
+      WallFollowStrategy <|-- ProportionalWallFollow
+      AvoidanceStrategy <|-- ProportionalAvoidance
+
+      ClusteringStrategy --> DetectedObject : produces
+
+      SensorFusion --> Lidar : reads
+      SensorFusion --> Camera : reads
+      SensorFusion --> ClusteringStrategy : uses
+      SensorFusion --> CornerStrategy : uses
+      SensorFusion --> WallDetectionStrategy : uses
+      SensorFusion --> WorldState : produces
+
+      WorldState --> WallInfo
+      WorldState --> Pillar
+      TrackMap --> Corner
+      TrackMap --> Section
+      TrackMap --> PillarRecord
+      TrackMap o-- WorldState : learns from
+
+      StateMachine --> RobotState
+      StateMachine --> WorldState : reads
+      StateMachine --> TrackMap : reads
+
+      Controller --> Motor
+      Controller --> Lidar
+      Controller --> Camera
+      Controller --> SensorFusion
+      Controller --> TrackMap
+      Controller --> StateMachine
+'''

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WRO 2025 Robot - LIDAR</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        h1 { color: #00d9ff; margin-bottom: 10px; }
+        nav {
+            margin-bottom: 20px;
+            padding: 10px 0;
+            border-bottom: 1px solid #333;
+        }
+        nav a {
+            color: #00d9ff;
+            text-decoration: none;
+            margin-right: 20px;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        nav a:hover { background: #333; }
+        #lidar-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .info {
+            margin-top: 10px;
+            color: #888;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>LIDAR View</h1>
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/lidar">LIDAR View</a>
+        <a href="/controls">Controls</a>
+    </nav>
+
+    <div id="lidar-container"></div>
+    <div class="info" id="info">Connecting...</div>
+
+    <script>
+        let lidarPoints = [];
+        let ws;
+        let connected = false;
+
+        function setup() {
+            let canvas = createCanvas(600, 600);
+            canvas.parent('lidar-container');
+
+            // Connect WebSocket
+            connectWebSocket();
+        }
+
+        function connectWebSocket() {
+            ws = new WebSocket('ws://' + location.host + '/ws/lidar');
+
+            ws.onopen = () => {
+                connected = true;
+                document.getElementById('info').textContent = 'Connected - ' + lidarPoints.length + ' points';
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                lidarPoints = data.points || [];
+                document.getElementById('info').textContent = 'Connected - ' + lidarPoints.length + ' points';
+            };
+
+            ws.onclose = () => {
+                connected = false;
+                document.getElementById('info').textContent = 'Disconnected - Reconnecting...';
+                setTimeout(connectWebSocket, 2000);
+            };
+
+            ws.onerror = (err) => {
+                console.error('WebSocket error:', err);
+            };
+        }
+
+        function draw() {
+            background(26, 26, 46);  // Dark blue background
+
+            translate(width / 2, height / 2);
+
+            // Draw distance rings
+            noFill();
+            stroke(50);
+            strokeWeight(1);
+            for (let r = 50; r <= 250; r += 50) {
+                ellipse(0, 0, r * 2, r * 2);
+            }
+
+            // Draw cardinal directions
+            stroke(50);
+            line(0, -280, 0, 280);
+            line(-280, 0, 280, 0);
+
+            // Draw labels
+            fill(100);
+            noStroke();
+            textAlign(CENTER);
+            textSize(12);
+            text('0°', 0, -260);
+            text('90°', 260, 0);
+            text('180°', 0, 260);
+            text('270°', -260, 0);
+
+            // Draw LIDAR points
+            stroke(0, 217, 255);  // Cyan
+            strokeWeight(3);
+            for (let point of lidarPoints) {
+                // Scale: 3000mm -> 250px
+                let scale = 250 / 3000;
+                let r = point.distance * scale;
+
+                // Angle: 0 = forward (up), clockwise
+                let angleRad = radians(point.angle - 90);
+                let x = r * cos(angleRad);
+                let y = r * sin(angleRad);
+
+                point(x, y);
+            }
+
+            // Draw robot at center
+            fill(0, 100, 255);
+            noStroke();
+            ellipse(0, 0, 20, 20);
+
+            // Draw robot direction indicator
+            fill(0, 255, 100);
+            triangle(0, -15, -5, -5, 5, -5);
+        }
+    </script>
+</body>
+</html>

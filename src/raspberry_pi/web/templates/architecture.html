@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Techpixies WRO Engineering Challenge</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            min-height: 100vh;
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #444;
+            font-weight: 400;
+            font-size: 2rem;
+        }
+
+        .architecture {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .layer {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            border-left: 6px solid;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .layer-header {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .layer-content {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* Layer colors - grayscale with slight tints */
+        .control { border-color: #333; }
+        .control .layer-header { color: #333; }
+
+        .decision { border-color: #555; }
+        .decision .layer-header { color: #555; }
+
+        .perception { border-color: #777; }
+        .perception .layer-header { color: #777; }
+
+        .sensors { border-color: #999; }
+        .sensors .layer-header { color: #999; }
+
+        /* Boxes */
+        .box {
+            background: #f8f8f8;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 18px 24px;
+            min-width: 150px;
+            text-align: center;
+        }
+
+        .box-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: #888;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        .box-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            font-family: 'Consolas', 'Monaco', monospace;
+            color: #222;
+        }
+
+        /* State badge */
+        .state-badge {
+            background: #444;
+            color: #fff;
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+        }
+
+        /* Sensor images */
+        .sensor-box {
+            background: #f8f8f8;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .sensor-box .box-label {
+            margin-bottom: 12px;
+        }
+
+        .sensor-image {
+            width: 280px;
+            height: 210px;
+            background: #e8e8e8;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 1rem;
+            border: 1px solid #ddd;
+        }
+
+        /* Connection arrows */
+        .arrow {
+            display: flex;
+            justify-content: center;
+            padding: 6px 0;
+        }
+
+        .arrow::before {
+            content: '';
+            width: 3px;
+            height: 30px;
+            background: linear-gradient(to bottom, #ccc, #aaa);
+            border-radius: 2px;
+        }
+
+        /* Pillar indicator */
+        .pillar {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: #f8f8f8;
+            padding: 10px 18px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .pillar-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+        }
+
+        .pillar-dot.red { background: #d63031; }
+        .pillar-dot.green { background: #00b894; }
+
+        .pillar span:last-child {
+            font-family: 'Consolas', monospace;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        /* HSV slider rows */
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 0;
+        }
+        .slider-row > span:first-child {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #555;
+            min-width: 14px;
+        }
+        .slider-row input[type="range"] {
+            flex: 1;
+            min-width: 60px;
+        }
+        .slider-row .sv {
+            font-family: 'Consolas', monospace;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #222;
+            min-width: 28px;
+            text-align: right;
+        }
+
+        /* Responsive */
+        @media (max-width: 700px) {
+            body {
+                padding: 15px;
+            }
+            .sensor-image {
+                width: 200px;
+                height: 150px;
+            }
+            .box {
+                min-width: 120px;
+                padding: 12px 16px;
+            }
+            .box-value {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Techpixies WRO Engineering Challenge</h1>
+
+    <div class="architecture">
+        <!-- CONTROL LAYER -->
+        <div class="layer control">
+            <div class="layer-header">Control Output</div>
+            <div class="layer-content">
+                <div class="box">
+                    <div class="box-label">Speed</div>
+                    <div class="box-value" id="speed">60</div>
+                </div>
+                <div class="box">
+                    <div class="box-label">Steering</div>
+                    <div class="box-value" id="steering">+12°</div>
+                </div>
+                <div class="box">
+                    <div class="box-label">Lap</div>
+                    <div class="box-value" id="lap">2 / 3</div>
+                </div>
+                <div class="box" style="cursor:pointer;background:#d63031;border:none" onclick="openManualControl()">
+                    <div class="box-label" style="color:#fff">Override</div>
+                    <div class="box-value" style="color:#fff;font-size:1.1rem">Manual Control</div>
+                </div>
+                <div id="pi-system" class="box" style="display:none">
+                    <div class="box-label">Pi System</div>
+                    <div style="font-family:Consolas,monospace;font-size:0.85rem;line-height:1.6">
+                        <div>Temp: <span id="pi-temp" style="font-weight:600">--</span></div>
+                        <div>Power: <span id="pi-power" style="font-weight:600">--</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="arrow"></div>
+
+        <!-- DECISION LAYER -->
+        <div class="layer decision">
+            <div class="layer-header">Decision</div>
+            <div class="layer-content">
+                <div class="box">
+                    <div class="box-label">State</div>
+                    <div class="state-badge" id="state">WALL_FOLLOW</div>
+                </div>
+                <div class="box">
+                    <div class="box-label">Direction</div>
+                    <div class="box-value" id="direction">CW</div>
+                </div>
+                <div class="box">
+                    <div class="box-label">Next Corner</div>
+                    <div class="box-value" id="next-corner">850mm</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="arrow"></div>
+
+        <!-- PERCEPTION LAYER -->
+        <div class="layer perception">
+            <div class="layer-header">Perception (WorldState)</div>
+            <div class="layer-content">
+                <div class="sensor-box" style="cursor:pointer" onclick="openWorldstateOverlay()">
+                    <div class="box-label">WorldState Bird's Eye - click to expand</div>
+                    <img src="/stream/worldstate" class="sensor-image" id="ws-birdseye" alt="WorldState Stream" />
+                </div>
+                <div class="sensor-box" style="cursor:pointer" onclick="openWorldstateCameraOverlay()">
+                    <div class="box-label">Fusion Camera - click to expand</div>
+                    <img src="/stream/worldstate/camera" class="sensor-image" id="ws-camera" alt="WorldState Camera" />
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                    <div class="box">
+                        <div class="box-label">Left Wall</div>
+                        <div class="box-value" id="left-wall">--</div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">Front</div>
+                        <div class="box-value" id="front-wall">--</div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">Right Wall</div>
+                        <div class="box-value" id="right-wall">--</div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">Corridor</div>
+                        <div class="box-value" id="corridor">--</div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">Corner</div>
+                        <div class="box-value" id="corner-ahead">--</div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">Pillars</div>
+                        <div id="pillars-container" style="min-height:20px">--</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="arrow"></div>
+
+        <!-- SENSORS LAYER -->
+        <div class="layer sensors">
+            <div class="layer-header">Sensors</div>
+            <div class="layer-content">
+                <div class="sensor-box" style="cursor:pointer" onclick="openLidarOverlay()">
+                    <div class="box-label">LIDAR (10Hz) - click to expand</div>
+                    <img src="/stream/lidar" class="sensor-image" id="lidar-view" alt="LIDAR Stream" />
+                </div>
+                <div class="sensor-box" style="cursor:pointer" onclick="openCameraOverlay()">
+                    <div class="box-label">Camera (30Hz) - click to expand</div>
+                    <img src="/stream/camera" class="sensor-image" id="camera-view" alt="Camera Stream" />
+                </div>
+                <div class="box">
+                    <div class="box-label">Encoder</div>
+                    <div class="box-value" id="encoder">124,532</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual control overlay -->
+    <div id="manual-overlay" style="
+        display:none;
+        position:fixed;
+        top:0;left:0;right:0;bottom:0;
+        background:rgba(0,0,0,0.5);
+        z-index:1000;
+        padding:30px;
+        overflow:auto;
+    " onclick="if(event.target===this)closeManualControl()">
+        <div style="
+            max-width:800px;
+            margin:0 auto;
+            background:#fff;
+            border-radius:12px;
+            padding:24px;
+            position:relative;
+            box-shadow:0 4px 20px rgba(0,0,0,0.15);
+        ">
+            <button onclick="closeManualControl()" style="
+                position:absolute;top:12px;right:16px;
+                background:none;border:none;font-size:1.5rem;
+                cursor:pointer;color:#666;
+            ">&#x2715;</button>
+
+            <h2 style="margin:0 0 4px;color:#d63031;font-weight:600;font-size:1.3rem">Manual Control</h2>
+            <div style="font-size:0.75rem;color:#888;margin-bottom:16px">
+                Arrow keys or buttons &middot; Space: emergency stop
+            </div>
+
+            <!-- Camera feed -->
+            <div style="margin-bottom:16px">
+                <div style="font-size:0.8rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                    Camera Feed
+                </div>
+                <img id="mc-camera" style="width:100%;border-radius:6px;background:#e8e8e8" />
+            </div>
+
+            <!-- Controls -->
+            <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
+                <!-- Direction buttons centered -->
+                <div style="display:flex;gap:6px;align-items:center">
+                    <button onmousedown="mcLeft()" onmouseup="mcRelease()" ontouchstart="mcLeft()" ontouchend="mcRelease()" style="
+                        width:80px;height:80px;border:1px solid #ddd;border-radius:10px;cursor:pointer;
+                        background:#f0f0f0;font-size:1.8rem;color:#333;
+                    ">&#x25C0;</button>
+
+                    <div style="display:flex;flex-direction:column;gap:6px">
+                        <button onmousedown="mcForward()" onmouseup="mcRelease()" ontouchstart="mcForward()" ontouchend="mcRelease()" style="
+                            width:56px;height:56px;border:1px solid #ddd;border-radius:8px;cursor:pointer;
+                            background:#f0f0f0;font-size:1.3rem;color:#333;
+                        ">&#x25B2;</button>
+                        <button onmousedown="mcBackward()" onmouseup="mcRelease()" ontouchstart="mcBackward()" ontouchend="mcRelease()" style="
+                            width:56px;height:56px;border:1px solid #ddd;border-radius:8px;cursor:pointer;
+                            background:#f0f0f0;font-size:1.3rem;color:#333;
+                        ">&#x25BC;</button>
+                    </div>
+
+                    <button onmousedown="mcRight()" onmouseup="mcRelease()" ontouchstart="mcRight()" ontouchend="mcRelease()" style="
+                        width:80px;height:80px;border:1px solid #ddd;border-radius:10px;cursor:pointer;
+                        background:#f0f0f0;font-size:1.8rem;color:#333;
+                    ">&#x25B6;</button>
+
+                    <div style="width:12px"></div>
+
+                    <button onclick="mcStop()" style="
+                        width:80px;height:80px;border:none;border-radius:10px;cursor:pointer;
+                        background:#d63031;color:white;font-size:0.9rem;font-weight:bold;letter-spacing:1px;
+                    ">STOP</button>
+                </div>
+
+                <!-- Speed slider + status row -->
+                <div style="display:flex;gap:12px;align-items:center;width:100%;max-width:400px">
+                    <div style="flex:1;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:10px 14px">
+                        <div style="font-size:0.7rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:6px">
+                            Speed
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <input type="range" id="mc-speed" min="10" max="100" value="40" style="flex:1">
+                            <span id="mc-speed-value" style="font-size:1.1rem;font-weight:600;font-family:monospace;color:#222;min-width:35px;text-align:right">40</span><span style="color:#888">%</span>
+                        </div>
+                    </div>
+
+                    <div id="mc-status" style="
+                        padding:8px 12px;
+                        background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;
+                        color:#888;font-size:0.8rem;white-space:nowrap;
+                    ">Not connected</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LIDAR overlay dialog -->
+    <div id="lidar-overlay" style="
+        display:none;
+        position:fixed;
+        top:0;left:0;right:0;bottom:0;
+        background:rgba(0,0,0,0.5);
+        z-index:1000;
+        padding:30px;
+        overflow:auto;
+    " onclick="if(event.target===this)closeLidarOverlay()">
+        <div style="
+            max-width:960px;
+            margin:0 auto;
+            background:#fff;
+            border-radius:12px;
+            padding:24px;
+            position:relative;
+            box-shadow:0 4px 20px rgba(0,0,0,0.15);
+        ">
+            <button onclick="closeLidarOverlay()" style="
+                position:absolute;top:12px;right:16px;
+                background:none;border:none;font-size:1.5rem;
+                cursor:pointer;color:#666;
+            ">&#x2715;</button>
+
+            <h2 style="margin:0 0 20px;color:#444;font-weight:400">LIDAR Debug View</h2>
+
+            <div style="display:flex;gap:16px;flex-wrap:wrap">
+                <div style="flex:1;min-width:300px">
+                    <div style="font-size:0.8rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                        Bird's Eye View (with clusters)
+                    </div>
+                    <img id="overlay-lidar" style="width:100%;border-radius:6px;background:#111" />
+                </div>
+                <div style="flex:1;min-width:300px">
+                    <div style="font-size:0.8rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                        Raw Points
+                    </div>
+                    <img id="overlay-lidar-raw" style="width:100%;border-radius:6px;background:#111" />
+                </div>
+            </div>
+
+            <!-- LIDAR display controls -->
+            <div style="margin-top:20px;display:flex;gap:16px;flex-wrap:wrap">
+                <div style="flex:1;min-width:200px;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:12px 16px">
+                    <div style="font-size:0.7rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                        Max Distance
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <input type="range" id="lidar-distance" min="500" max="12000" step="500" value="3000" oninput="lidarParamChanged()" style="flex:1">
+                        <span id="lidar-distance-val" style="font-size:1rem;font-weight:600;font-family:monospace;color:#222;min-width:55px;text-align:right">3000</span><span style="color:#888;font-size:0.8rem">mm</span>
+                    </div>
+                </div>
+                <div style="flex:1;min-width:200px;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:12px 16px">
+                    <div style="font-size:0.7rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                        Angle &plusmn;
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <input type="range" id="lidar-angle" min="15" max="180" step="15" value="180" oninput="lidarParamChanged()" style="flex:1">
+                        <span id="lidar-angle-val" style="font-size:1rem;font-weight:600;font-family:monospace;color:#222;min-width:35px;text-align:right">180</span><span style="color:#888;font-size:0.8rem">&deg;</span>
+                    </div>
+                </div>
+                <div style="flex:1;min-width:200px;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:12px 16px">
+                    <div style="font-size:0.7rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                        Min Quality
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <input type="range" id="lidar-quality" min="0" max="50" step="5" value="0" oninput="lidarParamChanged()" style="flex:1">
+                        <span id="lidar-quality-val" style="font-size:1rem;font-weight:600;font-family:monospace;color:#222;min-width:20px;text-align:right">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera overlay dialog -->
+    <div id="camera-overlay" style="
+        display:none;
+        position:fixed;
+        top:0;left:0;right:0;bottom:0;
+        background:rgba(0,0,0,0.85);
+        z-index:1000;
+        padding:30px;
+        overflow:auto;
+    " onclick="if(event.target===this)closeCameraOverlay()">
+        <div style="
+            max-width:960px;
+            margin:0 auto;
+            background:#fff;
+            border-radius:12px;
+            padding:24px;
+            position:relative;
+        ">
+            <button onclick="closeCameraOverlay()" style="
+                position:absolute;top:12px;right:16px;
+                background:none;border:none;font-size:1.5rem;
+                cursor:pointer;color:#666;
+            ">&#x2715;</button>
+
+            <h2 style="margin:0 0 20px;color:#444;font-weight:400">Camera Debug View</h2>
+
+            <div style="margin-bottom:20px">
+                <div style="font-size:0.8rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                    Camera Feed (with detections)
+                </div>
+                <img id="overlay-camera" style="width:100%;border-radius:6px;background:#e8e8e8" />
+            </div>
+
+            <div style="display:flex;gap:16px">
+                <div style="flex:1">
+                    <div style="font-size:0.8rem;text-transform:uppercase;color:#d63031;letter-spacing:1px;margin-bottom:8px">
+                        Red Mask
+                    </div>
+                    <img id="overlay-red" style="width:100%;border-radius:6px;background:#e8e8e8" />
+                </div>
+                <div style="flex:1">
+                    <div style="font-size:0.8rem;text-transform:uppercase;color:#00b894;letter-spacing:1px;margin-bottom:8px">
+                        Green Mask
+                    </div>
+                    <img id="overlay-green" style="width:100%;border-radius:6px;background:#e8e8e8" />
+                </div>
+                <div style="flex:1">
+                    <div style="font-size:0.8rem;text-transform:uppercase;color:#a855f7;letter-spacing:1px;margin-bottom:8px">
+                        Magenta Mask
+                    </div>
+                    <img id="overlay-magenta" style="width:100%;border-radius:6px;background:#e8e8e8" />
+                </div>
+            </div>
+
+            <!-- HSV Color Calibration -->
+            <div style="margin-top:24px;border-top:1px solid #e0e0e0;padding-top:20px">
+                <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+                    <div style="font-size:0.9rem;font-weight:600;color:#444;letter-spacing:1px;text-transform:uppercase">
+                        Color Calibration
+                    </div>
+
+                    <!-- Color selector tabs -->
+                    <div id="color-tabs" style="display:flex;gap:4px">
+                        <button onclick="selectColorTab('red')" id="tab-red" style="
+                            padding:6px 16px;border-radius:6px;border:2px solid #d63031;
+                            background:#d63031;color:#fff;cursor:pointer;font-weight:600;font-size:0.8rem;
+                        ">Red</button>
+                        <button onclick="selectColorTab('green')" id="tab-green" style="
+                            padding:6px 16px;border-radius:6px;border:2px solid #00b894;
+                            background:transparent;color:#00b894;cursor:pointer;font-weight:600;font-size:0.8rem;
+                        ">Green</button>
+                        <button onclick="selectColorTab('magenta')" id="tab-magenta" style="
+                            padding:6px 16px;border-radius:6px;border:2px solid #a855f7;
+                            background:transparent;color:#a855f7;cursor:pointer;font-weight:600;font-size:0.8rem;
+                        ">Magenta</button>
+                    </div>
+
+                    <!-- Min area + buttons -->
+                    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+                        <div style="font-size:0.7rem;color:#888;text-transform:uppercase">Min Area</div>
+                        <input type="range" id="hsv-min-area" min="50" max="2000" step="50" value="300" oninput="hsvParamChanged()" style="width:100px">
+                        <span id="hsv-min-area-val" style="font-family:monospace;font-size:0.85rem;font-weight:600;min-width:35px">300</span>
+
+                        <button onclick="hsvSave()" style="
+                            padding:6px 14px;border-radius:6px;border:1px solid #00b894;
+                            background:#00b894;color:#fff;cursor:pointer;font-weight:600;font-size:0.75rem;
+                        ">Save</button>
+                        <button onclick="hsvReset()" style="
+                            padding:6px 14px;border-radius:6px;border:1px solid #ccc;
+                            background:#f0f0f0;color:#666;cursor:pointer;font-weight:600;font-size:0.75rem;
+                        ">Reset</button>
+                    </div>
+                </div>
+
+                <!-- Red sliders (two hue ranges) -->
+                <div id="sliders-red" class="hsv-sliders">
+                    <div style="font-size:0.75rem;color:#888;margin-bottom:8px">Range 1 (Low Hue)</div>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>H</span><input type="range" min="0" max="180" data-param="red_h_min1" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="180" data-param="red_h_max1" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>S</span><input type="range" min="0" max="255" data-param="red_s_min1" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="red_s_max1" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>V</span><input type="range" min="0" max="255" data-param="red_v_min1" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="red_v_max1" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                    </div>
+                    <div style="font-size:0.75rem;color:#888;margin-bottom:8px">Range 2 (High Hue)</div>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap">
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>H</span><input type="range" min="0" max="180" data-param="red_h_min2" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="180" data-param="red_h_max2" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>S</span><input type="range" min="0" max="255" data-param="red_s_min2" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="red_s_max2" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>V</span><input type="range" min="0" max="255" data-param="red_v_min2" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="red_v_max2" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Green sliders -->
+                <div id="sliders-green" class="hsv-sliders" style="display:none">
+                    <div style="display:flex;gap:12px;flex-wrap:wrap">
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>H</span><input type="range" min="0" max="180" data-param="green_h_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="180" data-param="green_h_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>S</span><input type="range" min="0" max="255" data-param="green_s_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="green_s_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>V</span><input type="range" min="0" max="255" data-param="green_v_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="green_v_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Magenta sliders -->
+                <div id="sliders-magenta" class="hsv-sliders" style="display:none">
+                    <div style="display:flex;gap:12px;flex-wrap:wrap">
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>H</span><input type="range" min="0" max="180" data-param="magenta_h_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="180" data-param="magenta_h_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>S</span><input type="range" min="0" max="255" data-param="magenta_s_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="magenta_s_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>V</span><input type="range" min="0" max="255" data-param="magenta_v_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="magenta_v_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="hsv-status" style="font-size:0.75rem;color:#888;margin-top:8px"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WorldState bird's eye overlay -->
+    <div id="ws-overlay" style="
+        display:none;
+        position:fixed;
+        top:0;left:0;right:0;bottom:0;
+        background:rgba(0,0,0,0.5);
+        z-index:1000;
+        padding:30px;
+        overflow:auto;
+    " onclick="if(event.target===this)closeWorldstateOverlay()">
+        <div style="
+            max-width:700px;
+            margin:0 auto;
+            background:#fff;
+            border-radius:12px;
+            padding:24px;
+            position:relative;
+            box-shadow:0 4px 20px rgba(0,0,0,0.15);
+        ">
+            <button onclick="closeWorldstateOverlay()" style="
+                position:absolute;top:12px;right:16px;
+                background:none;border:none;font-size:1.5rem;
+                cursor:pointer;color:#666;
+            ">&#x2715;</button>
+
+            <h2 style="margin:0 0 20px;color:#444;font-weight:400">WorldState Bird's Eye</h2>
+            <img id="overlay-ws-birdseye" style="width:100%;border-radius:6px;background:#111" />
+        </div>
+    </div>
+
+    <!-- WorldState camera overlay -->
+    <div id="ws-camera-overlay" style="
+        display:none;
+        position:fixed;
+        top:0;left:0;right:0;bottom:0;
+        background:rgba(0,0,0,0.5);
+        z-index:1000;
+        padding:30px;
+        overflow:auto;
+    " onclick="if(event.target===this)closeWorldstateCameraOverlay()">
+        <div style="
+            max-width:960px;
+            margin:0 auto;
+            background:#fff;
+            border-radius:12px;
+            padding:24px;
+            position:relative;
+            box-shadow:0 4px 20px rgba(0,0,0,0.15);
+        ">
+            <button onclick="closeWorldstateCameraOverlay()" style="
+                position:absolute;top:12px;right:16px;
+                background:none;border:none;font-size:1.5rem;
+                cursor:pointer;color:#666;
+            ">&#x2715;</button>
+
+            <h2 style="margin:0 0 20px;color:#444;font-weight:400">Fusion Camera View</h2>
+            <div style="display:flex;gap:16px;flex-wrap:wrap">
+                <div style="flex:2;min-width:400px">
+                    <div style="font-size:0.8rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                        Camera + WorldState Overlay
+                    </div>
+                    <img id="overlay-ws-camera" style="width:100%;border-radius:6px;background:#e8e8e8" />
+                </div>
+                <div style="flex:1;min-width:250px">
+                    <div style="font-size:0.8rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                        Bird's Eye
+                    </div>
+                    <img id="overlay-ws-camera-birdseye" style="width:100%;border-radius:6px;background:#111" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ── WorldState polling ────────────────────────────────────
+        function pollWorldState() {
+            fetch('/api/worldstate').then(r => r.json()).then(data => {
+                // Walls
+                document.getElementById('left-wall').textContent =
+                    data.walls.left !== null ? data.walls.left + 'mm' : '--';
+                document.getElementById('right-wall').textContent =
+                    data.walls.right !== null ? data.walls.right + 'mm' : '--';
+                document.getElementById('front-wall').textContent =
+                    data.walls.front !== null ? data.walls.front + 'mm' : '--';
+                document.getElementById('corridor').textContent =
+                    data.corridor_width !== null ? data.corridor_width + 'mm' : '--';
+
+                // Corner
+                document.getElementById('corner-ahead').textContent =
+                    data.corner_ahead || '--';
+
+                // Pillars
+                const pc = document.getElementById('pillars-container');
+                if (data.pillars.length === 0) {
+                    pc.textContent = '--';
+                } else {
+                    pc.innerHTML = data.pillars.map(p =>
+                        '<div class="pillar" style="margin:2px 0">' +
+                        '<span class="pillar-dot ' + p.color + '"></span>' +
+                        '<span>' + p.distance + 'mm</span>' +
+                        '</div>'
+                    ).join('');
+                }
+
+                // Decision / control values
+                document.getElementById('state').textContent = data.state || '--';
+                document.getElementById('direction').textContent = data.direction || '--';
+                document.getElementById('encoder').textContent =
+                    data.encoder_pos ? data.encoder_pos.toLocaleString() : '0';
+
+                // Lap is also in /api/status, but worldstate has it too
+                if (data.lap !== undefined) {
+                    document.getElementById('lap').textContent = data.lap + ' / 3';
+                }
+            }).catch(() => {});
+        }
+
+        setInterval(pollWorldState, 500);
+        pollWorldState();
+
+        // ── Pi system info (only shown on Raspberry Pi) ───────────
+        function pollSystem() {
+            fetch('/api/system').then(r => r.json()).then(data => {
+                if (Object.keys(data).length === 0) return; // Not a Pi
+
+                document.getElementById('pi-system').style.display = '';
+
+                if (data.cpu_temp !== undefined) {
+                    document.getElementById('pi-temp').textContent = data.cpu_temp + '\u00B0C';
+                }
+
+                if (data.undervoltage_now !== undefined) {
+                    const el = document.getElementById('pi-power');
+                    if (data.undervoltage_now) {
+                        el.textContent = 'UNDERVOLT';
+                        el.style.color = '#d63031';
+                    } else if (data.undervoltage_occurred) {
+                        el.textContent = 'OK (was low)';
+                        el.style.color = '#e17055';
+                    } else {
+                        el.textContent = 'OK';
+                        el.style.color = '#00b894';
+                    }
+                }
+            }).catch(() => {});
+        }
+
+        setInterval(pollSystem, 2000);
+        pollSystem();
+
+        // ── WorldState overlays ───────────────────────────────────
+        function openWorldstateOverlay() {
+            document.getElementById('ws-overlay').style.display = 'block';
+            document.getElementById('overlay-ws-birdseye').src = '/stream/worldstate';
+        }
+        function closeWorldstateOverlay() {
+            document.getElementById('ws-overlay').style.display = 'none';
+            document.getElementById('overlay-ws-birdseye').src = '';
+        }
+        function openWorldstateCameraOverlay() {
+            document.getElementById('ws-camera-overlay').style.display = 'block';
+            document.getElementById('overlay-ws-camera').src = '/stream/worldstate/camera';
+            document.getElementById('overlay-ws-camera-birdseye').src = '/stream/worldstate';
+        }
+        function closeWorldstateCameraOverlay() {
+            document.getElementById('ws-camera-overlay').style.display = 'none';
+            document.getElementById('overlay-ws-camera').src = '';
+            document.getElementById('overlay-ws-camera-birdseye').src = '';
+        }
+
+        // ── LIDAR overlay ───────────────────────────────────────
+        function openLidarOverlay() {
+            document.getElementById('lidar-overlay').style.display = 'block';
+            document.getElementById('overlay-lidar').src = '/stream/lidar';
+            document.getElementById('overlay-lidar-raw').src = '/stream/lidar/raw';
+            // Load current params from server
+            fetch('/api/lidar/params').then(r => r.json()).then(data => {
+                if (!data.error) {
+                    document.getElementById('lidar-distance').value = data.max_distance;
+                    document.getElementById('lidar-distance-val').textContent = data.max_distance;
+                    document.getElementById('lidar-angle').value = data.angle;
+                    document.getElementById('lidar-angle-val').textContent = data.angle;
+                    document.getElementById('lidar-quality').value = data.min_quality;
+                    document.getElementById('lidar-quality-val').textContent = data.min_quality;
+                }
+            }).catch(() => {});
+        }
+
+        function closeLidarOverlay() {
+            document.getElementById('lidar-overlay').style.display = 'none';
+            document.getElementById('overlay-lidar').src = '';
+            document.getElementById('overlay-lidar-raw').src = '';
+        }
+
+        let lidarParamTimer = null;
+        function lidarParamChanged() {
+            const dist = document.getElementById('lidar-distance');
+            const angle = document.getElementById('lidar-angle');
+            const qual = document.getElementById('lidar-quality');
+            document.getElementById('lidar-distance-val').textContent = dist.value;
+            document.getElementById('lidar-angle-val').textContent = angle.value;
+            document.getElementById('lidar-quality-val').textContent = qual.value;
+
+            // Debounce: send after 150ms of no changes
+            clearTimeout(lidarParamTimer);
+            lidarParamTimer = setTimeout(() => {
+                fetch('/api/lidar/params', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        max_distance: parseInt(dist.value),
+                        angle: parseInt(angle.value),
+                        min_quality: parseInt(qual.value),
+                    })
+                }).catch(() => {});
+            }, 150);
+        }
+
+        // ── Camera overlay ──────────────────────────────────────
+        let currentColorTab = 'red';
+        let hsvParamTimer = null;
+        let hsvDefaults = null;  // Stored on first load for reset
+
+        function openCameraOverlay() {
+            document.getElementById('camera-overlay').style.display = 'block';
+            document.getElementById('overlay-camera').src = '/stream/camera';
+            document.getElementById('overlay-red').src = '/stream/camera/red';
+            document.getElementById('overlay-green').src = '/stream/camera/green';
+            document.getElementById('overlay-magenta').src = '/stream/camera/magenta';
+            loadHsvParams();
+        }
+
+        function closeCameraOverlay() {
+            document.getElementById('camera-overlay').style.display = 'none';
+            document.getElementById('overlay-camera').src = '';
+            document.getElementById('overlay-red').src = '';
+            document.getElementById('overlay-green').src = '';
+            document.getElementById('overlay-magenta').src = '';
+        }
+
+        function selectColorTab(color) {
+            currentColorTab = color;
+            const colors = {red: '#d63031', green: '#00b894', magenta: '#a855f7'};
+            ['red', 'green', 'magenta'].forEach(c => {
+                const btn = document.getElementById('tab-' + c);
+                const panel = document.getElementById('sliders-' + c);
+                if (c === color) {
+                    btn.style.background = colors[c];
+                    btn.style.color = '#fff';
+                    panel.style.display = '';
+                } else {
+                    btn.style.background = 'transparent';
+                    btn.style.color = colors[c];
+                    panel.style.display = 'none';
+                }
+            });
+        }
+
+        function loadHsvParams() {
+            fetch('/api/params').then(r => r.json()).then(data => {
+                if (data.error) return;
+                if (!hsvDefaults) hsvDefaults = {...data};
+
+                // Set all slider values and their display spans
+                document.querySelectorAll('.hsv-sliders input[data-param]').forEach(input => {
+                    const key = input.getAttribute('data-param');
+                    if (data[key] !== undefined) {
+                        input.value = data[key];
+                        // Update the span right after this input
+                        const sv = input.nextElementSibling;
+                        if (sv && sv.classList.contains('sv')) {
+                            sv.textContent = data[key];
+                        }
+                    }
+                });
+
+                // Min area
+                if (data.min_contour_area !== undefined) {
+                    document.getElementById('hsv-min-area').value = data.min_contour_area;
+                    document.getElementById('hsv-min-area-val').textContent = data.min_contour_area;
+                }
+            }).catch(() => {});
+        }
+
+        function hsvParamChanged() {
+            // Update display values
+            document.querySelectorAll('.hsv-sliders input[data-param]').forEach(input => {
+                const sv = input.nextElementSibling;
+                if (sv && sv.classList.contains('sv')) {
+                    sv.textContent = input.value;
+                }
+            });
+            document.getElementById('hsv-min-area-val').textContent =
+                document.getElementById('hsv-min-area').value;
+
+            // Debounce: send after 100ms of no changes
+            clearTimeout(hsvParamTimer);
+            hsvParamTimer = setTimeout(() => {
+                const params = {};
+                document.querySelectorAll('.hsv-sliders input[data-param]').forEach(input => {
+                    params[input.getAttribute('data-param')] = parseInt(input.value);
+                });
+                params.min_contour_area = parseInt(document.getElementById('hsv-min-area').value);
+
+                fetch('/api/params', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(params)
+                }).then(() => {
+                    document.getElementById('hsv-status').textContent = 'Applied';
+                    setTimeout(() => {
+                        document.getElementById('hsv-status').textContent = '';
+                    }, 1500);
+                }).catch(() => {});
+            }, 100);
+        }
+
+        function hsvSave() {
+            const params = {_save: true};
+            document.querySelectorAll('.hsv-sliders input[data-param]').forEach(input => {
+                params[input.getAttribute('data-param')] = parseInt(input.value);
+            });
+            params.min_contour_area = parseInt(document.getElementById('hsv-min-area').value);
+
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(params)
+            }).then(() => {
+                document.getElementById('hsv-status').textContent = 'Saved to params.json';
+                document.getElementById('hsv-status').style.color = '#00b894';
+                setTimeout(() => {
+                    document.getElementById('hsv-status').textContent = '';
+                    document.getElementById('hsv-status').style.color = '#888';
+                }, 3000);
+            }).catch(() => {});
+        }
+
+        function hsvReset() {
+            if (!hsvDefaults) return;
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(hsvDefaults)
+            }).then(() => {
+                loadHsvParams();
+                document.getElementById('hsv-status').textContent = 'Reset to initial values';
+                setTimeout(() => {
+                    document.getElementById('hsv-status').textContent = '';
+                }, 2000);
+            }).catch(() => {});
+        }
+
+        // ── Manual control overlay ──────────────────────────────
+        let mcWs = null;
+        const mcSpeedSlider = document.getElementById('mc-speed');
+        const mcSpeedValue = document.getElementById('mc-speed-value');
+        const mcStatus = document.getElementById('mc-status');
+        const MC_STEER_ANGLE = 25; // Fixed steering angle for left/right
+
+        mcSpeedSlider.oninput = () => { mcSpeedValue.textContent = mcSpeedSlider.value; };
+
+        function mcConnect() {
+            mcWs = new WebSocket('ws://' + location.host + '/ws/control');
+            mcWs.onopen = () => {
+                mcStatus.textContent = 'Connected';
+                mcStatus.style.color = '#00b894';
+            };
+            mcWs.onclose = () => {
+                mcStatus.textContent = 'Disconnected';
+                mcStatus.style.color = '#d63031';
+                if (document.getElementById('manual-overlay').style.display !== 'none') {
+                    setTimeout(mcConnect, 2000);
+                }
+            };
+        }
+
+        function mcDisconnect() {
+            if (mcWs) { mcWs.close(); mcWs = null; }
+        }
+
+        function mcDrive(speed, steering) {
+            if (mcWs && mcWs.readyState === WebSocket.OPEN) {
+                mcWs.send(JSON.stringify({ cmd: 'drive', speed: speed, steering: steering }));
+            }
+        }
+
+        function mcForward()  { mcDrive(parseInt(mcSpeedSlider.value), 90); }
+        function mcBackward() { mcDrive(-parseInt(mcSpeedSlider.value), 90); }
+        function mcLeft()     { mcDrive(parseInt(mcSpeedSlider.value), 90 - MC_STEER_ANGLE); }
+        function mcRight()    { mcDrive(parseInt(mcSpeedSlider.value), 90 + MC_STEER_ANGLE); }
+        function mcRelease()  { mcDrive(0, 90); }
+
+        function mcStop() {
+            if (mcWs && mcWs.readyState === WebSocket.OPEN) {
+                mcWs.send(JSON.stringify({ cmd: 'stop' }));
+            }
+        }
+
+        function openManualControl() {
+            document.getElementById('manual-overlay').style.display = 'block';
+            document.getElementById('mc-camera').src = '/stream/camera';
+            mcConnect();
+        }
+
+        function closeManualControl() {
+            document.getElementById('manual-overlay').style.display = 'none';
+            document.getElementById('mc-camera').src = '';
+            mcStop();
+            mcDisconnect();
+        }
+
+        // ── Keyboard shortcuts ──────────────────────────────────
+        const keysDown = {};
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeLidarOverlay();
+                closeCameraOverlay();
+                closeManualControl();
+                closeWorldstateOverlay();
+                closeWorldstateCameraOverlay();
+                return;
+            }
+
+            // Motor controls only when manual overlay is open
+            if (document.getElementById('manual-overlay').style.display === 'none') return;
+            if (keysDown[e.key]) return; // Prevent key repeat
+            keysDown[e.key] = true;
+
+            switch (e.key) {
+                case 'ArrowUp':    mcForward();  e.preventDefault(); break;
+                case 'ArrowDown':  mcBackward(); e.preventDefault(); break;
+                case 'ArrowLeft':  mcLeft();     e.preventDefault(); break;
+                case 'ArrowRight': mcRight();    e.preventDefault(); break;
+                case ' ':          mcStop();     e.preventDefault(); break;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keysDown[e.key] = false;
+            if (document.getElementById('manual-overlay').style.display === 'none') return;
+
+            if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+                mcRelease();
+            }
+        });
+    </script>
+</body>
+</html>
