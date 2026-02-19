@@ -1028,40 +1028,39 @@
 
         mcSpeedSlider.oninput = () => { mcSpeedValue.textContent = mcSpeedSlider.value; };
 
-        async function mcDrive(speed, steering) {
-            try {
-                const res = await fetch('/api/drive', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({speed, steering})
-                });
-                const data = await res.json();
+        function mcDrive(speed, steering) {
+            // Fire-and-forget: don't await to avoid race conditions
+            // between rapid press/release. Keepalive thread reads latest values.
+            fetch('/api/drive', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({speed, steering})
+            }).then(res => res.json()).then(data => {
                 if (data.ok) {
-                    mcStatus.textContent = 'Motor OK';
-                    mcStatus.style.color = '#00b894';
+                    mcStatus.textContent = speed === 0 && steering === 90 ? 'Ready' : 'Motor OK';
+                    mcStatus.style.color = speed === 0 && steering === 90 ? '#888' : '#00b894';
                 } else {
                     mcStatus.textContent = data.error || 'Error';
                     mcStatus.style.color = '#d63031';
                 }
-            } catch (e) {
+            }).catch(() => {
                 mcStatus.textContent = 'Offline';
                 mcStatus.style.color = '#d63031';
-            }
+            });
         }
 
-        async function mcStop() {
-            try {
-                await fetch('/api/stop', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: '{}'
-                });
+        function mcStop() {
+            fetch('/api/stop', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: '{}'
+            }).then(() => {
                 mcStatus.textContent = 'STOPPED';
                 mcStatus.style.color = '#e17055';
-            } catch (e) {
+            }).catch(() => {
                 mcStatus.textContent = 'Offline';
                 mcStatus.style.color = '#d63031';
-            }
+            });
         }
 
         function mcForward()  { mcDrive(parseInt(mcSpeedSlider.value), MC_STEER_CENTER); }
@@ -1070,16 +1069,22 @@
         function mcRight()    { mcDrive(0, MC_STEER_LEFT); }
         function mcRelease()  { mcDrive(0, MC_STEER_CENTER); }
 
-        // Bind direction buttons with proper touch handling
+        // Bind direction buttons — use global mouseup to avoid mouseleave issues
+        let mcButtonActive = false;
         function bindButton(id, pressFn) {
             const el = document.getElementById(id);
-            el.addEventListener('mousedown', (e) => { e.preventDefault(); pressFn(); });
-            el.addEventListener('mouseup', (e) => { e.preventDefault(); mcRelease(); });
-            el.addEventListener('mouseleave', (e) => { mcRelease(); });
-            el.addEventListener('touchstart', (e) => { e.preventDefault(); pressFn(); });
-            el.addEventListener('touchend', (e) => { e.preventDefault(); mcRelease(); });
-            el.addEventListener('touchcancel', (e) => { e.preventDefault(); mcRelease(); });
+            el.addEventListener('mousedown', (e) => { e.preventDefault(); mcButtonActive = true; pressFn(); });
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); mcButtonActive = true; pressFn(); });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); mcButtonActive = false; mcRelease(); });
+            el.addEventListener('touchcancel', (e) => { e.preventDefault(); mcButtonActive = false; mcRelease(); });
         }
+        // Global mouseup catches release even if cursor moved off button
+        document.addEventListener('mouseup', () => {
+            if (mcButtonActive) {
+                mcButtonActive = false;
+                mcRelease();
+            }
+        });
         bindButton('btn-fwd', mcForward);
         bindButton('btn-bwd', mcBackward);
         bindButton('btn-left', mcLeft);

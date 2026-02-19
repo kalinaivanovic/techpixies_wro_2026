@@ -281,9 +281,9 @@ class Camera:
         while self._running:
             try:
                 if self._use_picamera:
-                    # picamera2 returns RGB, OpenCV needs BGR
-                    rgb = self._picam.capture_array()
-                    frame = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+                    # picamera2 with "RGB888" format returns BGR in memory
+                    # (libcamera naming convention), so no conversion needed
+                    frame = self._picam.capture_array()
                 else:
                     ret, frame = self._cap.read()
                     if not ret:
