@@ -523,7 +523,7 @@ class WebServer:
         return None
 
     async def api_drive(self, request):
-        """POST /api/drive - Send drive command {speed, steering}."""
+        """POST /api/drive - Set target speed/steering (keepalive thread sends to ESP32)."""
         motor = self._get_motor()
         if not motor:
             return web.json_response({"error": "Motor not available"}, status=404)
@@ -531,7 +531,9 @@ class WebServer:
         data = await request.json()
         speed = int(data.get("speed", 0))
         steering = int(data.get("steering", 90))
-        motor.drive(speed, steering)
+        # Only set target values — keepalive thread does the actual serial write
+        motor._speed = max(-100, min(100, speed))
+        motor._steering = max(0, min(180, steering))
         return web.json_response({
             "ok": True,
             "speed": motor.speed,
@@ -544,7 +546,8 @@ class WebServer:
         if not motor:
             return web.json_response({"error": "Motor not available"}, status=404)
 
-        motor.emergency_stop()
+        motor._speed = 0
+        motor._steering = 90
         return web.json_response({"ok": True, "speed": 0})
 
     # --- Motor keepalive ---
