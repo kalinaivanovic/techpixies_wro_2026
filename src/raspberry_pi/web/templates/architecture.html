@@ -381,25 +381,25 @@
             <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
                 <!-- Direction buttons centered -->
                 <div style="display:flex;gap:6px;align-items:center">
-                    <button onmousedown="mcLeft()" onmouseup="mcRelease()" ontouchstart="mcLeft()" ontouchend="mcRelease()" style="
+                    <button id="btn-left" style="
                         width:80px;height:80px;border:1px solid #ddd;border-radius:10px;cursor:pointer;
-                        background:#f0f0f0;font-size:1.8rem;color:#333;
+                        background:#f0f0f0;font-size:1.8rem;color:#333;touch-action:none;
                     ">&#x25C0;</button>
 
                     <div style="display:flex;flex-direction:column;gap:6px">
-                        <button onmousedown="mcForward()" onmouseup="mcRelease()" ontouchstart="mcForward()" ontouchend="mcRelease()" style="
+                        <button id="btn-fwd" style="
                             width:56px;height:56px;border:1px solid #ddd;border-radius:8px;cursor:pointer;
-                            background:#f0f0f0;font-size:1.3rem;color:#333;
+                            background:#f0f0f0;font-size:1.3rem;color:#333;touch-action:none;
                         ">&#x25B2;</button>
-                        <button onmousedown="mcBackward()" onmouseup="mcRelease()" ontouchstart="mcBackward()" ontouchend="mcRelease()" style="
+                        <button id="btn-bwd" style="
                             width:56px;height:56px;border:1px solid #ddd;border-radius:8px;cursor:pointer;
-                            background:#f0f0f0;font-size:1.3rem;color:#333;
+                            background:#f0f0f0;font-size:1.3rem;color:#333;touch-action:none;
                         ">&#x25BC;</button>
                     </div>
 
-                    <button onmousedown="mcRight()" onmouseup="mcRelease()" ontouchstart="mcRight()" ontouchend="mcRelease()" style="
+                    <button id="btn-right" style="
                         width:80px;height:80px;border:1px solid #ddd;border-radius:10px;cursor:pointer;
-                        background:#f0f0f0;font-size:1.8rem;color:#333;
+                        background:#f0f0f0;font-size:1.8rem;color:#333;touch-action:none;
                     ">&#x25B6;</button>
 
                     <div style="width:12px"></div>
@@ -1069,6 +1069,21 @@
         function mcLeft()     { mcDrive(0, MC_STEER_RIGHT); }
         function mcRight()    { mcDrive(0, MC_STEER_LEFT); }
         function mcRelease()  { mcDrive(0, MC_STEER_CENTER); }
+
+        // Bind direction buttons with proper touch handling
+        function bindButton(id, pressFn) {
+            const el = document.getElementById(id);
+            el.addEventListener('mousedown', (e) => { e.preventDefault(); pressFn(); });
+            el.addEventListener('mouseup', (e) => { e.preventDefault(); mcRelease(); });
+            el.addEventListener('mouseleave', (e) => { mcRelease(); });
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); pressFn(); });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); mcRelease(); });
+            el.addEventListener('touchcancel', (e) => { e.preventDefault(); mcRelease(); });
+        }
+        bindButton('btn-fwd', mcForward);
+        bindButton('btn-bwd', mcBackward);
+        bindButton('btn-left', mcLeft);
+        bindButton('btn-right', mcRight);
 
         function openManualControl() {
             document.getElementById('manual-overlay').style.display = 'block';

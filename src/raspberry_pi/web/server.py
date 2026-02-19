@@ -560,14 +560,16 @@ class WebServer:
                 pass
 
     async def _motor_keepalive(self):
-        """Re-send last drive command every 100ms to feed ESP32 watchdog."""
+        """Re-send last drive command every 50ms to feed ESP32 watchdog."""
         while True:
             motor = self._get_motor()
             if motor and motor.is_connected:
-                if motor.speed != 0:
-                    motor.drive(motor.speed, motor.steering)
-                motor.update()
-            await asyncio.sleep(0.1)
+                # Always re-send current command to feed watchdog
+                motor.drive(motor.speed, motor.steering)
+                # Drain serial buffer without blocking
+                while motor._serial and motor._serial.in_waiting:
+                    motor.update()
+            await asyncio.sleep(0.05)
 
     def _render_template(self, name: str) -> str:
         """Render a template file."""

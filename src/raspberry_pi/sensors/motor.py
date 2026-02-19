@@ -64,7 +64,7 @@ class Motor:
             self._serial = serial.Serial(
                 port=self.port,
                 baudrate=self.baudrate,
-                timeout=0.1
+                timeout=0.005
             )
             self._connected = True
             logger.info(f"Connected to ESP32 on {self.port}")
