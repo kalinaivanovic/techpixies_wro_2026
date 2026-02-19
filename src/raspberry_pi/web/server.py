@@ -567,7 +567,7 @@ class WebServer:
             self._keepalive_thread.join(timeout=1.0)
 
     def _motor_keepalive_loop(self):
-        """Dedicated thread: re-send drive command every 50ms to feed ESP32 watchdog."""
+        """Dedicated thread: re-send drive command every 20ms to feed ESP32 watchdog."""
         while self._keepalive_running:
             motor = self._get_motor()
             if motor and motor.is_connected:
@@ -575,7 +575,7 @@ class WebServer:
                 # Drain serial buffer
                 while motor._serial and motor._serial.in_waiting:
                     motor.update()
-            time.sleep(0.05)
+            time.sleep(0.02)
 
     def _render_template(self, name: str) -> str:
         """Render a template file."""

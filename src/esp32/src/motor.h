@@ -7,9 +7,9 @@
 #define MOTOR_EN 12
 #define MOTOR_PN 13
 
-// Encoder pins (on IO header)
-#define ENCODER_A 44  // Green wire
-#define ENCODER_B 43  // Yellow wire
+// Encoder pins (moved to camera pins — camera not used on ESP32)
+#define ENCODER_A 41  // Green wire
+#define ENCODER_B 42  // Yellow wire
 
 // Duty cycle limit: motor rated 6V, powered from ~8V (2S Li-ion)
 // 8V × 0.75 = 6V effective
@@ -21,7 +21,7 @@
 #define PI_TX 43
 
 // Timing
-#define WATCHDOG_TIMEOUT_MS 200
+#define WATCHDOG_TIMEOUT_MS 500
 #define STATUS_INTERVAL_MS 20   // ~50Hz status reports
 
 // Direction definitions
