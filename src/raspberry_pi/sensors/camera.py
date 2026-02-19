@@ -83,6 +83,8 @@ class Camera:
         self._params = params  # Optional Parameters instance for live tuning
 
         self._cap: cv2.VideoCapture | None = None
+        self._picam = None
+        self._use_picamera = False
         self._running = False
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
@@ -107,12 +109,32 @@ class Camera:
         return self._running
 
     def start(self) -> bool:
-        """Start camera capture in background thread."""
+        """Start camera capture in background thread.
+
+        Tries picamera2 (CSI camera) first, falls back to OpenCV VideoCapture.
+        """
         if self._running:
             logger.warning("Camera already running")
             return True
 
         try:
+            # Try picamera2 first (Raspberry Pi CSI camera)
+            from picamera2 import Picamera2
+
+            self._picam = Picamera2()
+            self._picam.configure(self._picam.create_preview_configuration(
+                main={"format": "RGB888", "size": (self.width, self.height)}
+            ))
+            self._picam.start()
+            self._use_picamera = True
+            logger.info(f"Camera started (picamera2 CSI): {self.width}x{self.height}")
+
+        except (ImportError, Exception) as e:
+            # Fall back to OpenCV VideoCapture (USB webcam)
+            logger.info(f"picamera2 not available ({e}), trying OpenCV VideoCapture")
+            self._picam = None
+            self._use_picamera = False
+
             self._cap = cv2.VideoCapture(self.index)
             self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
             self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
@@ -121,17 +143,12 @@ class Camera:
                 logger.error("Failed to open camera")
                 return False
 
-            self._running = True
-            self._thread = threading.Thread(target=self._capture_loop, daemon=True)
-            self._thread.start()
+            logger.info(f"Camera started (OpenCV): {self.width}x{self.height}")
 
-            logger.info(f"Camera started: {self.width}x{self.height}")
-            return True
-
-        except Exception as e:
-            logger.error(f"Failed to start camera: {e}")
-            self._running = False
-            return False
+        self._running = True
+        self._thread = threading.Thread(target=self._capture_loop, daemon=True)
+        self._thread.start()
+        return True
 
     def stop(self):
         """Stop camera capture."""
@@ -140,6 +157,10 @@ class Camera:
         if self._thread:
             self._thread.join(timeout=2.0)
             self._thread = None
+
+        if hasattr(self, '_picam') and self._picam:
+            self._picam.stop()
+            self._picam = None
 
         if self._cap:
             self._cap.release()
@@ -259,9 +280,14 @@ class Camera:
         """Background capture and detection thread."""
         while self._running:
             try:
-                ret, frame = self._cap.read()
-                if not ret:
-                    continue
+                if self._use_picamera:
+                    # picamera2 returns RGB, OpenCV needs BGR
+                    rgb = self._picam.capture_array()
+                    frame = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+                else:
+                    ret, frame = self._cap.read()
+                    if not ret:
+                        continue
 
                 # Detect colored blobs
                 blobs = self._detect_blobs(frame)

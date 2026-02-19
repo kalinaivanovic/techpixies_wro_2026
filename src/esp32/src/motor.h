@@ -16,8 +16,9 @@
 #define MAX_DUTY_PERCENT 75
 
 // Pi UART pins (Serial1)
-#define PI_RX 41
-#define PI_TX 42
+// Board "other" section: 44=RX, 43=TX (shared with encoder pins)
+#define PI_RX 44
+#define PI_TX 43
 
 // Timing
 #define WATCHDOG_TIMEOUT_MS 200

@@ -45,6 +45,8 @@ def main():
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
+    logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
+
     logger = logging.getLogger(__name__)
     logger.info("WRO 2025 Robot starting...")
 

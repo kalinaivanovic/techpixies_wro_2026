@@ -1,4 +1,3 @@
-'''mermaid
 classDiagram                                                                                                                             
       %% ── SENSOR LAYER ──                                                                                                                
       class Lidar {                                                                                                                        
@@ -293,7 +292,6 @@ classDiagram
       TrackMap --> Section
       TrackMap --> PillarRecord
       TrackMap o-- WorldState : learns from
-
       StateMachine --> RobotState
       StateMachine --> WorldState : reads
       StateMachine --> TrackMap : reads
@@ -304,4 +302,3 @@ classDiagram
       Controller --> SensorFusion
       Controller --> TrackMap
       Controller --> StateMachine
-'''

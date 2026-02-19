@@ -1017,37 +1017,48 @@
             }).catch(() => {});
         }
 
-        // ── Manual control overlay ──────────────────────────────
-        let mcWs = null;
+        // ── Manual control overlay (REST API) ─────────────────────
         const mcSpeedSlider = document.getElementById('mc-speed');
         const mcSpeedValue = document.getElementById('mc-speed-value');
         const mcStatus = document.getElementById('mc-status');
         const MC_STEER_ANGLE = 25; // Fixed steering angle for left/right
+        let mcStatusTimer = null;
 
         mcSpeedSlider.oninput = () => { mcSpeedValue.textContent = mcSpeedSlider.value; };
 
-        function mcConnect() {
-            mcWs = new WebSocket('ws://' + location.host + '/ws/control');
-            mcWs.onopen = () => {
-                mcStatus.textContent = 'Connected';
-                mcStatus.style.color = '#00b894';
-            };
-            mcWs.onclose = () => {
-                mcStatus.textContent = 'Disconnected';
-                mcStatus.style.color = '#d63031';
-                if (document.getElementById('manual-overlay').style.display !== 'none') {
-                    setTimeout(mcConnect, 2000);
+        async function mcDrive(speed, steering) {
+            try {
+                const res = await fetch('/api/drive', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({speed, steering})
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    mcStatus.textContent = 'Motor OK';
+                    mcStatus.style.color = '#00b894';
+                } else {
+                    mcStatus.textContent = data.error || 'Error';
+                    mcStatus.style.color = '#d63031';
                 }
-            };
+            } catch (e) {
+                mcStatus.textContent = 'Offline';
+                mcStatus.style.color = '#d63031';
+            }
         }
 
-        function mcDisconnect() {
-            if (mcWs) { mcWs.close(); mcWs = null; }
-        }
-
-        function mcDrive(speed, steering) {
-            if (mcWs && mcWs.readyState === WebSocket.OPEN) {
-                mcWs.send(JSON.stringify({ cmd: 'drive', speed: speed, steering: steering }));
+        async function mcStop() {
+            try {
+                await fetch('/api/stop', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: '{}'
+                });
+                mcStatus.textContent = 'STOPPED';
+                mcStatus.style.color = '#e17055';
+            } catch (e) {
+                mcStatus.textContent = 'Offline';
+                mcStatus.style.color = '#d63031';
             }
         }
 
@@ -1057,23 +1068,17 @@
         function mcRight()    { mcDrive(parseInt(mcSpeedSlider.value), 90 + MC_STEER_ANGLE); }
         function mcRelease()  { mcDrive(0, 90); }
 
-        function mcStop() {
-            if (mcWs && mcWs.readyState === WebSocket.OPEN) {
-                mcWs.send(JSON.stringify({ cmd: 'stop' }));
-            }
-        }
-
         function openManualControl() {
             document.getElementById('manual-overlay').style.display = 'block';
             document.getElementById('mc-camera').src = '/stream/camera';
-            mcConnect();
+            mcStatus.textContent = 'Ready';
+            mcStatus.style.color = '#888';
         }
 
         function closeManualControl() {
             document.getElementById('manual-overlay').style.display = 'none';
             document.getElementById('mc-camera').src = '';
             mcStop();
-            mcDisconnect();
         }
 
         // ── Keyboard shortcuts ──────────────────────────────────
