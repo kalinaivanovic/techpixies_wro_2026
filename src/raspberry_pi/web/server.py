@@ -7,6 +7,8 @@ import json
 import logging
 import shutil
 import subprocess
+import threading
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -40,7 +42,8 @@ class WebServer:
         """
         self.controller = controller
         self.app = web.Application()
-        self._keepalive_task: Optional[asyncio.Task] = None
+        self._keepalive_thread: Optional[threading.Thread] = None
+        self._keepalive_running = False
         self._setup_routes()
         self.app.on_startup.append(self._on_startup)
         self.app.on_cleanup.append(self._on_cleanup)
@@ -548,28 +551,28 @@ class WebServer:
 
     async def _on_startup(self, app):
         """Start background tasks."""
-        self._keepalive_task = asyncio.create_task(self._motor_keepalive())
+        self._keepalive_running = True
+        self._keepalive_thread = threading.Thread(
+            target=self._motor_keepalive_loop, daemon=True
+        )
+        self._keepalive_thread.start()
 
     async def _on_cleanup(self, app):
-        """Cancel background tasks."""
-        if self._keepalive_task:
-            self._keepalive_task.cancel()
-            try:
-                await self._keepalive_task
-            except asyncio.CancelledError:
-                pass
+        """Stop background tasks."""
+        self._keepalive_running = False
+        if self._keepalive_thread:
+            self._keepalive_thread.join(timeout=1.0)
 
-    async def _motor_keepalive(self):
-        """Re-send last drive command every 50ms to feed ESP32 watchdog."""
-        while True:
+    def _motor_keepalive_loop(self):
+        """Dedicated thread: re-send drive command every 50ms to feed ESP32 watchdog."""
+        while self._keepalive_running:
             motor = self._get_motor()
             if motor and motor.is_connected:
-                # Always re-send current command to feed watchdog
                 motor.drive(motor.speed, motor.steering)
-                # Drain serial buffer without blocking
+                # Drain serial buffer
                 while motor._serial and motor._serial.in_waiting:
                     motor.update()
-            await asyncio.sleep(0.05)
+            time.sleep(0.05)
 
     def _render_template(self, name: str) -> str:
         """Render a template file."""
