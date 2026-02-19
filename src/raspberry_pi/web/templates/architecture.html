@@ -1064,8 +1064,8 @@
 
         function mcForward()  { mcDrive(parseInt(mcSpeedSlider.value), 90); }
         function mcBackward() { mcDrive(-parseInt(mcSpeedSlider.value), 90); }
-        function mcLeft()     { mcDrive(parseInt(mcSpeedSlider.value), 90 - MC_STEER_ANGLE); }
-        function mcRight()    { mcDrive(parseInt(mcSpeedSlider.value), 90 + MC_STEER_ANGLE); }
+        function mcLeft()     { mcDrive(0, 90 - MC_STEER_ANGLE); }
+        function mcRight()    { mcDrive(0, 90 + MC_STEER_ANGLE); }
         function mcRelease()  { mcDrive(0, 90); }
 
         function openManualControl() {
