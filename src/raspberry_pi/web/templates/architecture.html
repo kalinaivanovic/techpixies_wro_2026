@@ -525,6 +525,13 @@
                         <span id="lidar-quality-val" style="font-size:1rem;font-weight:600;font-family:monospace;color:#222;min-width:20px;text-align:right">0</span>
                     </div>
                 </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                    <button onclick="lidarSave()" style="
+                        padding:8px 16px;border-radius:6px;border:1px solid #00b894;
+                        background:#00b894;color:#fff;cursor:pointer;font-weight:600;font-size:0.8rem;
+                    ">Save</button>
+                    <span id="lidar-save-status" style="font-size:0.75rem;color:#888"></span>
+                </div>
             </div>
         </div>
     </div>
@@ -962,6 +969,24 @@
                     })
                 }).catch(() => {});
             }, 150);
+        }
+
+        function lidarSave() {
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    lidar_max_distance: parseInt(document.getElementById('lidar-distance').value),
+                    lidar_display_angle: parseInt(document.getElementById('lidar-angle').value),
+                    lidar_min_quality: parseInt(document.getElementById('lidar-quality').value),
+                    _save: true
+                })
+            }).then(() => {
+                const el = document.getElementById('lidar-save-status');
+                el.textContent = 'Saved';
+                el.style.color = '#00b894';
+                setTimeout(() => { el.textContent = ''; }, 2000);
+            }).catch(() => {});
         }
 
         // ── Camera overlay ──────────────────────────────────────

@@ -123,14 +123,15 @@ class Lidar:
 
     def get_scan(self) -> dict[int, float]:
         """
-        Get latest scan data.
+        Get latest scan data, filtered by params (max distance, angle, quality).
 
         Returns:
             Dict mapping angle (0-359) to distance (mm).
             Angle 0 = forward, 90 = right, 180 = back, 270 = left.
         """
         with self._lock:
-            return self._scan.copy()
+            scan = self._scan.copy()
+        return self._filter_scan(scan)
 
     def get_timestamp(self) -> float:
         """Get timestamp of latest scan."""
@@ -198,12 +199,9 @@ class Lidar:
 
         Uses params.lidar_max_distance and params.lidar_display_angle for filtering.
         """
-        with self._lock:
-            if not self._scan:
-                return None
-            scan = self._scan.copy()
-
-        scan = self._filter_scan(scan)
+        scan = self.get_scan()
+        if not scan:
+            return None
         max_range = self.params.lidar_max_distance
 
         # Create bird's eye view image
@@ -253,12 +251,9 @@ class Lidar:
 
     def get_jpeg_raw(self, size: int = 500, quality: int = 80) -> Optional[bytes]:
         """Get raw bird's eye view (points only, no clusters) as JPEG bytes."""
-        with self._lock:
-            if not self._scan:
-                return None
-            scan = self._scan.copy()
-
-        scan = self._filter_scan(scan)
+        scan = self.get_scan()
+        if not scan:
+            return None
         max_range = self.params.lidar_max_distance
 
         image = self._scan_to_image(scan, size, max_range)
