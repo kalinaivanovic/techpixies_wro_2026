@@ -95,6 +95,7 @@ class Motor:
                 timeout=0.005
             )
             self._connected = True
+            self.reset_encoder()
             logger.info(f"Connected to ESP32 on {self.port}")
             return True
         except Exception as e:
@@ -187,8 +188,14 @@ class Motor:
     def _update_speed(self, new_encoder: int):
         """Calculate speed metrics from encoder delta."""
         now = time.monotonic()
-        dt = now - self._prev_time if self._prev_time > 0 else 0
 
+        if self._prev_time == 0:
+            # First reading — just initialize, can't calculate speed yet
+            self._prev_encoder = new_encoder
+            self._prev_time = now
+            return
+
+        dt = now - self._prev_time
         if dt > 0.005:  # At least 5ms between updates to avoid noise
             delta = new_encoder - self._prev_encoder
             self._total_ticks += abs(delta)
