@@ -61,6 +61,10 @@ class Parameters:
     # Detection
     min_contour_area: int = 300
 
+    # Wheel & encoder (for speed/distance calculation)
+    wheel_diameter_mm: float = 65.0  # DFRobot FIT0003 rubber wheel
+    encoder_cpr: int = 0  # Counts per wheel revolution (0 = uncalibrated)
+
     # LIDAR filtering
     lidar_min_distance: int = 60  # mm, ignore readings closer (robot body)
     lidar_min_quality: int = 10  # 0-47, minimum quality to accept

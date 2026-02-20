@@ -331,9 +331,27 @@
                     <div class="box-label">Camera (30Hz) - click to expand</div>
                     <img src="/stream/camera" class="sensor-image" id="camera-view" alt="Camera Stream" />
                 </div>
-                <div class="box">
-                    <div class="box-label">Encoder</div>
-                    <div class="box-value" id="encoder">124,532</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                    <div class="box">
+                        <div class="box-label">Encoder</div>
+                        <div class="box-value" id="encoder">0</div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">Ticks/sec</div>
+                        <div class="box-value" id="ticks-per-sec">0</div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">RPM</div>
+                        <div class="box-value" id="rpm">0</div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">Speed</div>
+                        <div class="box-value" id="speed-cms">0 <span style="font-size:0.7rem;color:#888">cm/s</span></div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">Distance</div>
+                        <div class="box-value" id="distance">0 <span style="font-size:0.7rem;color:#888">cm</span></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -787,12 +805,21 @@
         // ── Status polling (encoder, speed, steering from motor) ────
         function pollStatus() {
             fetch('/api/status').then(r => r.json()).then(data => {
-                if (data.encoder !== undefined && data.encoder !== 0) {
-                    document.getElementById('encoder').textContent =
-                        data.encoder.toLocaleString();
-                }
+                document.getElementById('encoder').textContent =
+                    (data.encoder || 0).toLocaleString();
                 document.getElementById('speed').textContent = data.speed || 0;
                 document.getElementById('steering').textContent = data.steering + '\u00B0';
+                document.getElementById('ticks-per-sec').textContent = data.ticks_per_sec || 0;
+                document.getElementById('rpm').textContent = data.rpm || 0;
+
+                const cms = data.speed_cm_s || 0;
+                document.getElementById('speed-cms').innerHTML =
+                    cms.toFixed(1) + ' <span style="font-size:0.7rem;color:#888">cm/s</span>';
+
+                const dist = data.distance_cm || 0;
+                document.getElementById('distance').innerHTML =
+                    (dist > 100 ? (dist / 100).toFixed(2) + ' <span style="font-size:0.7rem;color:#888">m</span>'
+                                : dist.toFixed(0) + ' <span style="font-size:0.7rem;color:#888">cm</span>');
             }).catch(() => {});
         }
 

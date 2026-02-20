@@ -133,6 +133,10 @@ class WebServer:
                 status["encoder"] = self.controller.motor.encoder
                 status["speed"] = self.controller.motor.speed
                 status["steering"] = self.controller.motor.steering
+                status["ticks_per_sec"] = round(self.controller.motor.ticks_per_sec)
+                status["rpm"] = round(self.controller.motor.rpm, 1)
+                status["speed_cm_s"] = round(self.controller.motor.speed_cm_s, 1)
+                status["distance_cm"] = round(self.controller.motor.distance_cm, 1)
             except AttributeError:
                 pass  # Not all components available (e.g. camera-only mode)
 
@@ -595,6 +599,9 @@ class WebServer:
                         break
                     if not motor.update():
                         break
+                # Recalculate derived values (RPM, speed, distance)
+                if self.controller and hasattr(self.controller, 'params') and self.controller.params:
+                    motor.update_derived(self.controller.params)
             time.sleep(0.02)
 
     def _render_template(self, name: str) -> str:

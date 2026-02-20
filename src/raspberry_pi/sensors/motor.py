@@ -4,10 +4,13 @@ Motor sensor/actuator - ESP32 communication.
 Handles:
 - Sending speed and steering commands to ESP32
 - Reading encoder values
+- Speed/RPM/distance calculation from encoder
 - Emergency stop
 """
 
+import math
 import logging
+import time
 from typing import Optional
 
 import serial
@@ -42,6 +45,15 @@ class Motor:
         self._encoder = 0
         self._connected = False
 
+        # Speed calculation from encoder deltas
+        self._prev_encoder = 0
+        self._prev_time = 0.0
+        self._ticks_per_sec = 0.0
+        self._rpm = 0.0
+        self._speed_cm_s = 0.0
+        self._distance_cm = 0.0
+        self._total_ticks = 0  # Absolute ticks traveled (ignores direction)
+
     @property
     def is_connected(self) -> bool:
         return self._connected
@@ -57,6 +69,22 @@ class Motor:
     @property
     def encoder(self) -> int:
         return self._encoder
+
+    @property
+    def ticks_per_sec(self) -> float:
+        return self._ticks_per_sec
+
+    @property
+    def rpm(self) -> float:
+        return self._rpm
+
+    @property
+    def speed_cm_s(self) -> float:
+        return self._speed_cm_s
+
+    @property
+    def distance_cm(self) -> float:
+        return self._distance_cm
 
     def connect(self) -> bool:
         """Open serial connection to ESP32."""
@@ -128,13 +156,15 @@ class Motor:
             return False
 
         try:
-            line = self._serial.readline().decode().strip()
+            line = self._serial.readline().decode(errors="ignore").strip()
 
             if line.startswith("S:"):
                 # Status: S:<encoder>,<speed>,<steer>
                 parts = line[2:].split(",")
                 if len(parts) >= 3:
-                    self._encoder = int(parts[0])
+                    new_encoder = int(parts[0])
+                    self._update_speed(new_encoder)
+                    self._encoder = new_encoder
                 return True
 
             elif line.startswith("E:"):
@@ -153,6 +183,38 @@ class Motor:
                 pass
 
         return False
+
+    def _update_speed(self, new_encoder: int):
+        """Calculate speed metrics from encoder delta."""
+        now = time.monotonic()
+        dt = now - self._prev_time if self._prev_time > 0 else 0
+
+        if dt > 0.005:  # At least 5ms between updates to avoid noise
+            delta = new_encoder - self._prev_encoder
+            self._total_ticks += abs(delta)
+
+            raw_tps = delta / dt
+            # Smooth with exponential moving average (0.3 new, 0.7 old)
+            self._ticks_per_sec = 0.7 * self._ticks_per_sec + 0.3 * raw_tps
+
+            self._prev_encoder = new_encoder
+            self._prev_time = now
+
+    def update_derived(self, params):
+        """Recalculate RPM, speed, distance from params. Call from keepalive loop."""
+        cpr = params.encoder_cpr
+        wheel_d = params.wheel_diameter_mm
+
+        if cpr > 0:
+            self._rpm = (self._ticks_per_sec / cpr) * 60.0
+            circumference_cm = math.pi * wheel_d / 10.0  # mm to cm
+            self._speed_cm_s = (self._ticks_per_sec / cpr) * circumference_cm
+            self._distance_cm = (self._total_ticks / cpr) * circumference_cm
+        else:
+            # Uncalibrated: show raw ticks
+            self._rpm = 0
+            self._speed_cm_s = 0
+            self._distance_cm = 0
 
     def _send_command(self):
         """Send current speed and steering to ESP32."""
