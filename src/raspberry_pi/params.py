@@ -63,7 +63,7 @@ class Parameters:
 
     # Wheel & encoder (for speed/distance calculation)
     wheel_diameter_mm: float = 65.0  # DFRobot FIT0003 rubber wheel
-    encoder_cpr: int = 0  # Counts per wheel revolution (0 = uncalibrated)
+    encoder_cpr: int = 1365  # 341.2 PPR × 4 (quadrature) — DFRobot FIT0450 34:1
 
     # LIDAR filtering
     lidar_min_distance: int = 60  # mm, ignore readings closer (robot body)
