@@ -87,8 +87,9 @@ def main():
             def init_fusion(self):
                 """Create SensorFusion after sensors are started."""
                 if self.lidar and self.camera:
+                    encoder_fn = (lambda: self.motor.encoder) if self.motor else (lambda: 0)
                     self._fusion = SensorFusion(
-                        self.lidar, self.camera, lambda: 0,
+                        self.lidar, self.camera, encoder_fn,
                     )
 
             @property

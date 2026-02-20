@@ -2,10 +2,10 @@
 #include "motor.h"
 #include "steering.h"
 
-// Current commanded values (for status reporting)
+// Current commanded values
 static int currentSpeed = 0;    // -100..100
 static int currentSteer = 90;   // 0..180
-static int currentDirection = STOP;   // Track direction for back-EMF protection
+static int currentDirection = STOP;
 
 // Brief stop when reversing direction to let back-EMF dissipate
 #define DIRECTION_CHANGE_DELAY_MS 30
@@ -18,6 +18,29 @@ static bool watchdogTripped = false;
 // Line buffer for Pi commands
 static char cmdBuf[64];
 static uint8_t cmdLen = 0;
+
+// Apply motor speed only when it actually changes
+static void applyMotor(int speed)
+{
+  int newDirection = (speed > 0) ? FORWARD : (speed < 0) ? BACKWARD : STOP;
+
+  // Back-EMF protection on direction reversal
+  if ((currentDirection == FORWARD && newDirection == BACKWARD) ||
+      (currentDirection == BACKWARD && newDirection == FORWARD)) {
+    motor_stop();
+    delay(DIRECTION_CHANGE_DELAY_MS);
+  }
+
+  currentDirection = newDirection;
+
+  if (speed > 0) {
+    motor_forward((uint8_t)speed);
+  } else if (speed < 0) {
+    motor_backward((uint8_t)(-speed));
+  } else {
+    motor_stop();
+  }
+}
 
 // Parse and execute a complete command line
 void handleCommand(const char* line)
@@ -36,41 +59,17 @@ void handleCommand(const char* line)
       if (steer < 0) steer = 0;
       if (steer > 180) steer = 180;
 
-      currentSpeed = speed;
-      currentSteer = steer;
-
-      // Apply steering
-      steering_set(steer);
-
-      // Apply motor (with back-EMF protection on direction reversal)
-      int newDirection = (speed > 0) ? FORWARD : (speed < 0) ? BACKWARD : STOP;
-
-      if ((currentDirection == FORWARD && newDirection == BACKWARD) ||
-          (currentDirection == BACKWARD && newDirection == FORWARD)) {
-        // Direction reversal — stop first to let back-EMF dissipate
-        motor_stop();
-        delay(DIRECTION_CHANGE_DELAY_MS);
-        Serial.println("[MOT] Direction change — brief stop");
+      // Only apply motor/steering when values actually change
+      if (speed != currentSpeed) {
+        applyMotor(speed);
+        currentSpeed = speed;
       }
 
-      currentDirection = newDirection;
-
-      if (speed > 0) {
-        motor_forward((uint8_t)speed);
-      } else if (speed < 0) {
-        motor_backward((uint8_t)(-speed));
-      } else {
-        motor_stop();
+      if (steer != currentSteer) {
+        steering_set(steer);
+        currentSteer = steer;
       }
 
-      // Debug print only on value change to avoid flooding USB serial
-      static int lastPrintSpeed = -999;
-      static int lastPrintSteer = -999;
-      if (speed != lastPrintSpeed || steer != lastPrintSteer) {
-        Serial.printf("[CMD] speed=%d steer=%d\n", speed, steer);
-        lastPrintSpeed = speed;
-        lastPrintSteer = steer;
-      }
     } else {
       Serial.printf("[ERR] Bad C cmd: %s\n", line);
     }
@@ -82,12 +81,10 @@ void handleCommand(const char* line)
     currentSpeed = 0;
     currentDirection = STOP;
     currentSteer = STEERING_CENTER;
-    Serial.println("[CMD] Emergency stop");
 
   } else if (line[0] == 'R' && (line[1] == '\0' || line[1] == '\n')) {
     // R\n — reset encoder
     encoder_reset();
-    Serial.println("[CMD] Encoder reset");
 
   } else {
     Serial.printf("[ERR] Unknown cmd: %s\n", line);
@@ -96,7 +93,6 @@ void handleCommand(const char* line)
 
 void setup()
 {
-  // USB serial for debug
   Serial.begin(115200);
   unsigned long startWait = millis();
   while (!Serial && (millis() - startWait < 3000)) {
@@ -105,19 +101,16 @@ void setup()
 
   Serial.println("ESP32-S3 Robot Controller Starting...");
 
-  // Pi UART on GPIO 41(RX) / 42(TX)
+  // Pi UART on GPIO 44(RX) / 43(TX)
   Serial1.begin(115200, SERIAL_8N1, PI_RX, PI_TX);
 
-  Serial.println("Initializing motor...");
   motor_init();
-
-  Serial.println("Initializing steering servo...");
   steering_init();
 
   lastCommandTime = millis();
   lastStatusTime = millis();
 
-  Serial.println("Setup complete. Listening on Serial1 for Pi commands.");
+  Serial.println("Ready.");
 }
 
 void loop()
@@ -136,10 +129,15 @@ void loop()
     } else if (cmdLen < sizeof(cmdBuf) - 1) {
       cmdBuf[cmdLen++] = c;
     } else {
-      // Buffer overflow — discard
       cmdLen = 0;
     }
   }
+
+  // Re-read time AFTER processing commands.
+  // handleCommand() sets lastCommandTime = millis(), which can be newer
+  // than `now` captured at loop top. Without refreshing, unsigned
+  // subtraction wraps around and falsely triggers the watchdog.
+  now = millis();
 
   // --- Watchdog: stop motor if no command within timeout ---
   if (!watchdogTripped && (now - lastCommandTime > WATCHDOG_TIMEOUT_MS)) {
@@ -149,16 +147,6 @@ void loop()
     watchdogTripped = true;
     Serial.println("[WDG] No command — motor stopped");
   }
-
-  // --- Stall detection (disabled — encoder on GPIO 41/42 needs verification) ---
-  // TODO: Re-enable once encoder wiring is confirmed reliable
-  // if (check_stall()) {
-  //   motor_stop();
-  //   currentSpeed = 0;
-  //   currentDirection = STOP;
-  //   Serial1.println("E:STALL");
-  //   Serial.println("[ERR] STALL DETECTED");
-  // }
 
   // --- Status reporting to Pi (~50Hz) ---
   if (now - lastStatusTime >= STATUS_INTERVAL_MS) {

@@ -784,6 +784,21 @@
         setInterval(pollWorldState, 500);
         pollWorldState();
 
+        // ── Status polling (encoder, speed, steering from motor) ────
+        function pollStatus() {
+            fetch('/api/status').then(r => r.json()).then(data => {
+                if (data.encoder !== undefined && data.encoder !== 0) {
+                    document.getElementById('encoder').textContent =
+                        data.encoder.toLocaleString();
+                }
+                document.getElementById('speed').textContent = data.speed || 0;
+                document.getElementById('steering').textContent = data.steering + '\u00B0';
+            }).catch(() => {});
+        }
+
+        setInterval(pollStatus, 500);
+        pollStatus();
+
         // ── Pi system info (only shown on Raspberry Pi) ───────────
         function pollSystem() {
             fetch('/api/system').then(r => r.json()).then(data => {
