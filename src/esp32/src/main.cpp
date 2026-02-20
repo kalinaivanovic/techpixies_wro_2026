@@ -5,6 +5,10 @@
 // Current commanded values (for status reporting)
 static int currentSpeed = 0;    // -100..100
 static int currentSteer = 90;   // 0..180
+static int currentDirection = STOP;   // Track direction for back-EMF protection
+
+// Brief stop when reversing direction to let back-EMF dissipate
+#define DIRECTION_CHANGE_DELAY_MS 30
 
 // Timing
 static unsigned long lastCommandTime = 0;
@@ -38,7 +42,19 @@ void handleCommand(const char* line)
       // Apply steering
       steering_set(steer);
 
-      // Apply motor
+      // Apply motor (with back-EMF protection on direction reversal)
+      int newDirection = (speed > 0) ? FORWARD : (speed < 0) ? BACKWARD : STOP;
+
+      if ((currentDirection == FORWARD && newDirection == BACKWARD) ||
+          (currentDirection == BACKWARD && newDirection == FORWARD)) {
+        // Direction reversal — stop first to let back-EMF dissipate
+        motor_stop();
+        delay(DIRECTION_CHANGE_DELAY_MS);
+        Serial.println("[MOT] Direction change — brief stop");
+      }
+
+      currentDirection = newDirection;
+
       if (speed > 0) {
         motor_forward((uint8_t)speed);
       } else if (speed < 0) {
@@ -57,6 +73,7 @@ void handleCommand(const char* line)
     motor_stop();
     steering_center();
     currentSpeed = 0;
+    currentDirection = STOP;
     currentSteer = STEERING_CENTER;
     Serial.println("[CMD] Emergency stop");
 
@@ -121,6 +138,7 @@ void loop()
   if (!watchdogTripped && (now - lastCommandTime > WATCHDOG_TIMEOUT_MS)) {
     motor_stop();
     currentSpeed = 0;
+    currentDirection = STOP;
     watchdogTripped = true;
     Serial.println("[WDG] No command — motor stopped");
   }
@@ -129,6 +147,7 @@ void loop()
   if (check_stall()) {
     motor_stop();
     currentSpeed = 0;
+    currentDirection = STOP;
     // Report stall to Pi
     Serial1.println("E:STALL");
     Serial.println("[ERR] STALL DETECTED");

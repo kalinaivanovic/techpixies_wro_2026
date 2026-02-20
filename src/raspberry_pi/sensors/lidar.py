@@ -19,8 +19,6 @@ from pyrplidar import PyRPlidar
 from config import (
     LIDAR_PORT,
     LIDAR_BAUDRATE,
-    LIDAR_MIN_DISTANCE,
-    LIDAR_MIN_QUALITY,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,7 +42,8 @@ class Lidar:
     RPLIDAR C1 driver with background scanning.
 
     Usage:
-        lidar = Lidar()
+        params = Parameters.load()
+        lidar = Lidar(params=params)
         lidar.start()
 
         # Get latest scan data
@@ -55,10 +54,12 @@ class Lidar:
 
     def __init__(
         self,
+        params,
         port: str = LIDAR_PORT,
         baudrate: int = LIDAR_BAUDRATE,
         motor_pwm: int = 660,
     ):
+        self.params = params
         self.port = port
         self.baudrate = baudrate
         self.motor_pwm = motor_pwm
@@ -72,11 +73,6 @@ class Lidar:
         self._scan: dict[int, float] = {}
         self._scan_quality: dict[int, float] = {}  # angle -> avg quality
         self._scan_timestamp: float = 0.0
-
-        # Display parameters (adjustable via web interface)
-        self.display_max_distance: int = 3000  # mm
-        self.display_angle: int = 180  # ± degrees from forward
-        self.display_min_quality: int = 0  # minimum quality filter
 
     @property
     def is_running(self) -> bool:
@@ -180,10 +176,10 @@ class Lidar:
             return sum(distances) / len(distances)
 
     def _filter_scan(self, scan: dict[int, float]) -> dict[int, float]:
-        """Filter scan by display_angle, display_max_distance, and display_min_quality."""
-        angle_limit = self.display_angle
-        max_dist = self.display_max_distance
-        min_qual = self.display_min_quality
+        """Filter scan by angle, max distance, and min quality from params."""
+        angle_limit = self.params.lidar_display_angle
+        max_dist = self.params.lidar_max_distance
+        min_qual = self.params.lidar_min_quality
         quality = self._scan_quality
         filtered = {}
         for angle_deg, distance in scan.items():
@@ -200,7 +196,7 @@ class Lidar:
     def get_jpeg_frame(self, size: int = 500, quality: int = 80) -> Optional[bytes]:
         """Get bird's eye view with detected clusters as JPEG bytes.
 
-        Uses display_max_distance and display_angle for filtering.
+        Uses params.lidar_max_distance and params.lidar_display_angle for filtering.
         """
         with self._lock:
             if not self._scan:
@@ -208,7 +204,7 @@ class Lidar:
             scan = self._scan.copy()
 
         scan = self._filter_scan(scan)
-        max_range = self.display_max_distance
+        max_range = self.params.lidar_max_distance
 
         # Create bird's eye view image
         image = self._scan_to_image(scan, size, max_range)
@@ -263,7 +259,7 @@ class Lidar:
             scan = self._scan.copy()
 
         scan = self._filter_scan(scan)
-        max_range = self.display_max_distance
+        max_range = self.params.lidar_max_distance
 
         image = self._scan_to_image(scan, size, max_range)
         display = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
@@ -385,10 +381,10 @@ class Lidar:
                 distance = reading.distance
                 quality = reading.quality
 
-                # Filter invalid readings (hardware minimum only)
-                if distance < LIDAR_MIN_DISTANCE:
+                # Filter invalid readings
+                if distance < self.params.lidar_min_distance:
                     continue
-                if quality < LIDAR_MIN_QUALITY:
+                if quality < self.params.lidar_min_quality:
                     continue
 
                 # Accumulate readings for averaging

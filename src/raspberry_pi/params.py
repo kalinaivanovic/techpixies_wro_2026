@@ -54,8 +54,18 @@ class Parameters:
     magenta_v_min: int = 100
     magenta_v_max: int = 255
 
+    # Camera resolution (restart camera to apply changes)
+    camera_width: int = 640
+    camera_height: int = 480
+
     # Detection
     min_contour_area: int = 300
+
+    # LIDAR filtering
+    lidar_min_distance: int = 60  # mm, ignore readings closer (robot body)
+    lidar_min_quality: int = 10  # 0-47, minimum quality to accept
+    lidar_max_distance: int = 3000  # mm, ignore readings further
+    lidar_display_angle: int = 180  # ± degrees from forward
 
     def update(self, **kwargs):
         """Update parameters from dict (e.g., from web API)."""

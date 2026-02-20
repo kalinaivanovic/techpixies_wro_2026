@@ -82,6 +82,9 @@ class WebServer:
         self.app.router.add_get("/api/params", self.api_params_get)
         self.app.router.add_post("/api/params", self.api_params_set)
 
+        # Camera restart (apply resolution changes)
+        self.app.router.add_post("/api/camera/restart", self.api_camera_restart)
+
         # System info (Pi-specific, optional)
         self.app.router.add_get("/api/system", self.api_system)
 
@@ -137,34 +140,34 @@ class WebServer:
 
     async def api_lidar_params_get(self, request):
         """Get current LIDAR display parameters."""
-        if self.controller and hasattr(self.controller, 'lidar') and self.controller.lidar:
-            lidar = self.controller.lidar
-            return web.json_response({
-                "max_distance": lidar.display_max_distance,
-                "angle": lidar.display_angle,
-                "min_quality": lidar.display_min_quality,
-            })
-        return web.json_response({"error": "LIDAR not available"}, status=404)
+        if not self.controller or not hasattr(self.controller, 'params') or not self.controller.params:
+            return web.json_response({"error": "Parameters not available"}, status=404)
+        p = self.controller.params
+        return web.json_response({
+            "max_distance": p.lidar_max_distance,
+            "angle": p.lidar_display_angle,
+            "min_quality": p.lidar_min_quality,
+        })
 
     async def api_lidar_params_set(self, request):
         """Set LIDAR display parameters."""
-        if not self.controller or not hasattr(self.controller, 'lidar') or not self.controller.lidar:
-            return web.json_response({"error": "LIDAR not available"}, status=404)
+        if not self.controller or not hasattr(self.controller, 'params') or not self.controller.params:
+            return web.json_response({"error": "Parameters not available"}, status=404)
 
         data = await request.json()
-        lidar = self.controller.lidar
+        p = self.controller.params
 
         if "max_distance" in data:
-            lidar.display_max_distance = int(data["max_distance"])
+            p.lidar_max_distance = int(data["max_distance"])
         if "angle" in data:
-            lidar.display_angle = int(data["angle"])
+            p.lidar_display_angle = int(data["angle"])
         if "min_quality" in data:
-            lidar.display_min_quality = int(data["min_quality"])
+            p.lidar_min_quality = int(data["min_quality"])
 
         return web.json_response({
-            "max_distance": lidar.display_max_distance,
-            "angle": lidar.display_angle,
-            "min_quality": lidar.display_min_quality,
+            "max_distance": p.lidar_max_distance,
+            "angle": p.lidar_display_angle,
+            "min_quality": p.lidar_min_quality,
         })
 
     async def stream_camera(self, request):
@@ -447,6 +450,19 @@ class WebServer:
             self.controller.params.save()
 
         return web.json_response(self.controller.params.to_dict())
+
+    async def api_camera_restart(self, request):
+        """POST /api/camera/restart - Restart camera with current params."""
+        if not self.controller or not self.controller.camera:
+            return web.json_response({"error": "Camera not available"}, status=404)
+
+        camera = self.controller.camera
+        camera.restart()
+        return web.json_response({
+            "ok": True,
+            "width": camera.width,
+            "height": camera.height,
+        })
 
     async def ws_lidar(self, request):
         """WebSocket for LIDAR data streaming."""

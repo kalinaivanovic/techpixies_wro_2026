@@ -19,18 +19,7 @@ import numpy as np
 
 from config import (
     CAMERA_INDEX,
-    CAMERA_WIDTH,
-    CAMERA_HEIGHT,
     CAMERA_FOV,
-    RED_LOWER1,
-    RED_UPPER1,
-    RED_LOWER2,
-    RED_UPPER2,
-    GREEN_LOWER,
-    GREEN_UPPER,
-    MAGENTA_LOWER,
-    MAGENTA_UPPER,
-    MIN_CONTOUR_AREA,
 )
 
 logger = logging.getLogger(__name__)
@@ -56,7 +45,8 @@ class Camera:
     Runs capture in background thread, provides latest detections.
 
     Usage:
-        camera = Camera()
+        params = Parameters.load()
+        camera = Camera(params=params)
         camera.start()
 
         blobs = camera.get_blobs()
@@ -66,21 +56,23 @@ class Camera:
         camera.stop()
     """
 
+    # IMX219 full-sensor binned mode (2x2 binning, 4:3, full FOV)
+    # picamera2 ISP downscales from this to the requested output size
+    SENSOR_FULL_WIDTH = 1640
+    SENSOR_FULL_HEIGHT = 1232
+
     def __init__(
         self,
+        params,
         index: int = CAMERA_INDEX,
-        width: int = CAMERA_WIDTH,
-        height: int = CAMERA_HEIGHT,
         fov: float = CAMERA_FOV,
-        min_area: int = MIN_CONTOUR_AREA,
-        params=None,
     ):
+        self.params = params
         self.index = index
-        self.width = width
-        self.height = height
         self.fov = fov
-        self.min_area = min_area
-        self._params = params  # Optional Parameters instance for live tuning
+        # Actual capture dimensions (set on start from params)
+        self.width = params.camera_width
+        self.height = params.camera_height
 
         self._cap: cv2.VideoCapture | None = None
         self._picam = None
@@ -93,16 +85,6 @@ class Camera:
         self._blobs: list[ColorBlob] = []
         self._frame: np.ndarray | None = None
         self._timestamp: float = 0.0
-
-        # Pre-compute color ranges as numpy arrays (fallback when no params)
-        self._red_lower1 = np.array(RED_LOWER1)
-        self._red_upper1 = np.array(RED_UPPER1)
-        self._red_lower2 = np.array(RED_LOWER2)
-        self._red_upper2 = np.array(RED_UPPER2)
-        self._green_lower = np.array(GREEN_LOWER)
-        self._green_upper = np.array(GREEN_UPPER)
-        self._magenta_lower = np.array(MAGENTA_LOWER)
-        self._magenta_upper = np.array(MAGENTA_UPPER)
 
     @property
     def is_running(self) -> bool:
@@ -117,17 +99,27 @@ class Camera:
             logger.warning("Camera already running")
             return True
 
+        # Read resolution from params (may have changed since __init__)
+        self.width = self.params.camera_width
+        self.height = self.params.camera_height
+
         try:
             # Try picamera2 first (Raspberry Pi CSI camera)
             from picamera2 import Picamera2
 
             self._picam = Picamera2()
             self._picam.configure(self._picam.create_preview_configuration(
-                main={"format": "RGB888", "size": (self.width, self.height)}
+                main={"format": "RGB888", "size": (self.width, self.height)},
+                # Force full-sensor capture (2x2 binned) to preserve full FOV.
+                # Without this, picamera2 may pick a center-crop sensor mode.
+                sensor={"output_size": (self.SENSOR_FULL_WIDTH, self.SENSOR_FULL_HEIGHT)},
             ))
             self._picam.start()
             self._use_picamera = True
-            logger.info(f"Camera started (picamera2 CSI): {self.width}x{self.height}")
+            logger.info(
+                f"Camera started (picamera2 CSI): {self.width}x{self.height} "
+                f"from sensor {self.SENSOR_FULL_WIDTH}x{self.SENSOR_FULL_HEIGHT}"
+            )
 
         except (ImportError, Exception) as e:
             # Fall back to OpenCV VideoCapture (USB webcam)
@@ -167,6 +159,11 @@ class Camera:
             self._cap = None
 
         logger.info("Camera stopped")
+
+    def restart(self):
+        """Restart camera with current params (e.g., after resolution change)."""
+        self.stop()
+        self.start()
 
     def get_blobs(self) -> list[ColorBlob]:
         """Get latest detected color blobs."""
@@ -302,40 +299,26 @@ class Camera:
                     logger.error(f"Camera capture error: {e}")
 
     def _range(self, color: str):
-        """Get (lower, upper) HSV numpy arrays for a color.
-
-        Reads from live Parameters if available, otherwise uses
-        pre-computed arrays from config.py defaults.
-        """
-        p = self._params
-        if p is not None:
-            if color == "red1":
-                return (np.array([p.red_h_min1, p.red_s_min1, p.red_v_min1]),
-                        np.array([p.red_h_max1, p.red_s_max1, p.red_v_max1]))
-            if color == "red2":
-                return (np.array([p.red_h_min2, p.red_s_min2, p.red_v_min2]),
-                        np.array([p.red_h_max2, p.red_s_max2, p.red_v_max2]))
-            if color == "green":
-                return (np.array([p.green_h_min, p.green_s_min, p.green_v_min]),
-                        np.array([p.green_h_max, p.green_s_max, p.green_v_max]))
-            if color == "magenta":
-                return (np.array([p.magenta_h_min, p.magenta_s_min, p.magenta_v_min]),
-                        np.array([p.magenta_h_max, p.magenta_s_max, p.magenta_v_max]))
-        # Fallback to pre-computed arrays
+        """Get (lower, upper) HSV numpy arrays for a color from Parameters."""
+        p = self.params
         if color == "red1":
-            return (self._red_lower1, self._red_upper1)
+            return (np.array([p.red_h_min1, p.red_s_min1, p.red_v_min1]),
+                    np.array([p.red_h_max1, p.red_s_max1, p.red_v_max1]))
         if color == "red2":
-            return (self._red_lower2, self._red_upper2)
+            return (np.array([p.red_h_min2, p.red_s_min2, p.red_v_min2]),
+                    np.array([p.red_h_max2, p.red_s_max2, p.red_v_max2]))
         if color == "green":
-            return (self._green_lower, self._green_upper)
-        return (self._magenta_lower, self._magenta_upper)
+            return (np.array([p.green_h_min, p.green_s_min, p.green_v_min]),
+                    np.array([p.green_h_max, p.green_s_max, p.green_v_max]))
+        return (np.array([p.magenta_h_min, p.magenta_s_min, p.magenta_v_min]),
+                np.array([p.magenta_h_max, p.magenta_s_max, p.magenta_v_max]))
 
     def _detect_blobs(self, frame: np.ndarray) -> list[ColorBlob]:
         """Detect colored blobs in frame."""
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         blobs = []
 
-        min_area = self._params.min_contour_area if self._params else self.min_area
+        min_area = self.params.min_contour_area
 
         # Detect red (two ranges because red wraps around hue)
         rl1, ru1 = self._range("red1")
@@ -357,10 +340,8 @@ class Camera:
 
         return blobs
 
-    def _find_blobs(self, mask: np.ndarray, color: str, min_area: int | None = None) -> list[ColorBlob]:
+    def _find_blobs(self, mask: np.ndarray, color: str, min_area: int) -> list[ColorBlob]:
         """Find blobs in a binary mask."""
-        if min_area is None:
-            min_area = self.min_area
         blobs = []
 
         # Clean up mask

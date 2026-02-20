@@ -66,7 +66,7 @@ def main():
                 self.motor = None
                 if use_lidar:
                     from sensors.lidar import Lidar
-                    self.lidar = Lidar()
+                    self.lidar = Lidar(params=self.params)
                 if use_motor:
                     from sensors.motor import Motor
                     self.motor = Motor()

@@ -45,7 +45,7 @@ class Controller:
         self.params = Parameters.load()
 
         # Sensors
-        self.lidar = Lidar()
+        self.lidar = Lidar(params=self.params)
         self.camera = Camera(params=self.params)
         self.motor = Motor()
 
