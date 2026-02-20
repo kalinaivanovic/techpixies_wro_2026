@@ -239,6 +239,10 @@
                     <div class="box-label">Lap</div>
                     <div class="box-value" id="lap">2 / 3</div>
                 </div>
+                <div id="auto-btn" class="box" style="cursor:pointer;background:#00b894;border:none" onclick="toggleAuto()">
+                    <div class="box-label" style="color:#fff">Autonomous</div>
+                    <div class="box-value" style="color:#fff;font-size:1.1rem" id="auto-btn-text">Start Robot</div>
+                </div>
                 <div class="box" style="cursor:pointer;background:#d63031;border:none" onclick="openManualControl()">
                     <div class="box-label" style="color:#fff">Override</div>
                     <div class="box-value" style="color:#fff;font-size:1.1rem">Manual Control</div>
@@ -802,6 +806,37 @@
         setInterval(pollWorldState, 500);
         pollWorldState();
 
+        // ── Auto mode ────────────────────────────────────────────────
+        let autoRunning = false;
+
+        function toggleAuto() {
+            if (autoRunning) {
+                fetch('/api/auto/stop', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'})
+                    .then(r => r.json()).then(data => {
+                        if (data.ok) updateAutoUI(false);
+                    }).catch(() => {});
+            } else {
+                fetch('/api/auto/start', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'})
+                    .then(r => r.json()).then(data => {
+                        if (data.ok) updateAutoUI(true);
+                        else if (data.error) alert(data.error);
+                    }).catch(() => {});
+            }
+        }
+
+        function updateAutoUI(running) {
+            autoRunning = running;
+            const btn = document.getElementById('auto-btn');
+            const txt = document.getElementById('auto-btn-text');
+            if (running) {
+                btn.style.background = '#d63031';
+                txt.textContent = 'Stop Robot';
+            } else {
+                btn.style.background = '#00b894';
+                txt.textContent = 'Start Robot';
+            }
+        }
+
         // ── Status polling (encoder, speed, steering from motor) ────
         function pollStatus() {
             fetch('/api/status').then(r => r.json()).then(data => {
@@ -820,6 +855,11 @@
                 document.getElementById('distance').innerHTML =
                     (dist > 100 ? (dist / 100).toFixed(2) + ' <span style="font-size:0.7rem;color:#888">m</span>'
                                 : dist.toFixed(0) + ' <span style="font-size:0.7rem;color:#888">cm</span>');
+
+                // Sync auto button state
+                if (data.auto !== undefined && data.auto !== autoRunning) {
+                    updateAutoUI(data.auto);
+                }
             }).catch(() => {});
         }
 

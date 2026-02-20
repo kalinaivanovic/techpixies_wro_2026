@@ -78,6 +78,10 @@ class WebServer:
         self.app.router.add_post("/api/drive", self.api_drive)
         self.app.router.add_post("/api/stop", self.api_stop)
 
+        # Auto mode (start/stop autonomous control)
+        self.app.router.add_post("/api/auto/start", self.api_auto_start)
+        self.app.router.add_post("/api/auto/stop", self.api_auto_stop)
+
         # Runtime parameters (HSV ranges, detection thresholds)
         self.app.router.add_get("/api/params", self.api_params_get)
         self.app.router.add_post("/api/params", self.api_params_set)
@@ -124,6 +128,7 @@ class WebServer:
             "encoder": 0,
             "speed": 0,
             "steering": 90,
+            "auto": False,
         }
 
         if self.controller:
@@ -139,8 +144,33 @@ class WebServer:
                 status["distance_cm"] = round(self.controller.motor.distance_cm, 1)
             except AttributeError:
                 pass  # Not all components available (e.g. camera-only mode)
+            try:
+                status["auto"] = self.controller.auto_running
+            except AttributeError:
+                pass
 
         return web.json_response(status)
+
+    async def api_auto_start(self, request):
+        """POST /api/auto/start - Start autonomous control loop."""
+        if not self.controller or not hasattr(self.controller, 'start_auto'):
+            return web.json_response(
+                {"error": "Auto mode not available"}, status=404
+            )
+        try:
+            await self.controller.start_auto()
+            return web.json_response({"ok": True, "running": True})
+        except RuntimeError as e:
+            return web.json_response({"error": str(e)}, status=400)
+
+    async def api_auto_stop(self, request):
+        """POST /api/auto/stop - Stop autonomous control loop."""
+        if not self.controller or not hasattr(self.controller, 'stop_auto'):
+            return web.json_response(
+                {"error": "Auto mode not available"}, status=404
+            )
+        await self.controller.stop_auto()
+        return web.json_response({"ok": True, "running": False})
 
     async def api_lidar_params_get(self, request):
         """Get current LIDAR display parameters."""

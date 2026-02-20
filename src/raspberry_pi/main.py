@@ -75,14 +75,27 @@ def main():
                 self.visualizer = WorldStateVisualizer()
                 self._fusion = None  # Created after sensors start
 
-                # Stub state_machine for API endpoints
-                class _StubState:
-                    name = "IDLE"
-                class _StubSM:
-                    state = _StubState()
-                    lap_count = 0
-                    direction = None
-                self.state_machine = _StubSM()
+                # State machine: real if all sensors available, stub otherwise
+                self._can_auto = use_lidar and use_motor
+                if self._can_auto:
+                    from decision import StateMachine
+                    from perception import TrackMap
+                    self.state_machine = StateMachine()
+                    self.track_map = TrackMap()
+                else:
+                    class _StubState:
+                        name = "IDLE"
+                    class _StubSM:
+                        state = _StubState()
+                        lap_count = 0
+                        direction = None
+                    self.state_machine = _StubSM()
+                    self.track_map = None
+
+                # Auto mode state
+                self._auto_running = False
+                self._auto_task = None
+                self._latest_world = None
 
             def init_fusion(self):
                 """Create SensorFusion after sensors are started."""
@@ -93,7 +106,13 @@ def main():
                     )
 
             @property
+            def auto_running(self):
+                return self._auto_running
+
+            @property
             def world_state(self):
+                if self._auto_running and self._latest_world:
+                    return self._latest_world
                 if self._fusion:
                     return self._fusion.update()
                 return None
@@ -109,6 +128,95 @@ def main():
                 if self.camera.is_running:
                     return self.camera.get_blobs()
                 return []
+
+            async def start_auto(self):
+                """Start autonomous control loop."""
+                if self._auto_running:
+                    return
+                if not self._can_auto:
+                    raise RuntimeError("Need --motor and --lidar for auto mode")
+                if not self._fusion:
+                    raise RuntimeError("Sensor fusion not initialized")
+
+                from decision import StateMachine
+                from perception import TrackMap
+                from config import CONTROL_LOOP_HZ
+
+                # Fresh state machine and track map each run
+                self.state_machine = StateMachine()
+                self.track_map = TrackMap()
+                self.state_machine.start()
+                self.motor.reset_encoder()
+                self._auto_running = True
+                self._auto_task = asyncio.ensure_future(
+                    self._auto_loop(CONTROL_LOOP_HZ)
+                )
+                logger.info("Auto mode started")
+
+            async def stop_auto(self):
+                """Stop autonomous control loop."""
+                self._auto_running = False
+                if self._auto_task:
+                    self._auto_task.cancel()
+                    try:
+                        await self._auto_task
+                    except asyncio.CancelledError:
+                        pass
+                    self._auto_task = None
+                # Stop motor (keepalive thread will send the 0 speed)
+                if self.motor:
+                    self.motor._speed = 0
+                    self.motor._steering = 90
+                self._latest_world = None
+                logger.info("Auto mode stopped")
+
+            async def _auto_loop(self, hz):
+                """Autonomous control loop (runs as asyncio task)."""
+                from decision import RobotState
+
+                period = 1.0 / hz
+                loop_count = 0
+
+                try:
+                    while self._auto_running:
+                        t0 = asyncio.get_event_loop().time()
+
+                        # Perception
+                        world = self._fusion.update()
+                        self._latest_world = world
+
+                        # Track mapping
+                        if self.track_map:
+                            self.track_map.update(world)
+
+                        # Decision
+                        speed, steering = self.state_machine.decide(
+                            world, self.track_map
+                        )
+
+                        # Execute (set values; keepalive thread sends to ESP32)
+                        if self.motor and self.motor.is_connected:
+                            self.motor._speed = max(-100, min(100, speed))
+                            self.motor._steering = max(0, min(180, steering))
+
+                        # Race complete?
+                        if self.state_machine.state == RobotState.DONE:
+                            logger.info("Auto: race complete")
+                            break
+
+                        loop_count += 1
+                        elapsed = asyncio.get_event_loop().time() - t0
+                        await asyncio.sleep(max(0, period - elapsed))
+
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e:
+                    logger.error(f"Auto loop error: {e}", exc_info=True)
+                finally:
+                    if self.motor:
+                        self.motor._speed = 0
+                        self.motor._steering = 90
+                    self._auto_running = False
 
         sensors = DebugSensors(use_lidar=args.lidar, use_motor=args.motor)
         sensors.camera.start()
@@ -133,6 +241,8 @@ def main():
             except asyncio.CancelledError:
                 pass
             finally:
+                if sensors.auto_running:
+                    await sensors.stop_auto()
                 if sensors.motor:
                     sensors.motor.disconnect()
                 sensors.camera.stop()
