@@ -589,9 +589,12 @@ class WebServer:
             if motor and motor.is_connected:
                 # Send current values without overwriting them (avoid race with REST handler)
                 motor._send_command()
-                # Drain serial buffer
-                while motor._serial and motor._serial.in_waiting:
-                    motor.update()
+                # Drain serial buffer (max 5 lines per cycle to avoid getting stuck)
+                for _ in range(5):
+                    if not motor._serial or not motor._serial.in_waiting:
+                        break
+                    if not motor.update():
+                        break
             time.sleep(0.02)
 
     def _render_template(self, name: str) -> str:

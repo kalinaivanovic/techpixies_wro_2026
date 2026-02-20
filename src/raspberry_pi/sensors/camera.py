@@ -294,6 +294,9 @@ class Camera:
                     self._frame = frame
                     self._timestamp = time.time()
 
+                # Yield CPU to other threads (keepalive, web server)
+                time.sleep(0.005)
+
             except Exception as e:
                 if self._running:
                     logger.error(f"Camera capture error: {e}")

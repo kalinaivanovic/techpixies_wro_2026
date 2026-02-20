@@ -63,7 +63,14 @@ void handleCommand(const char* line)
         motor_stop();
       }
 
-      Serial.printf("[CMD] speed=%d steer=%d\n", speed, steer);
+      // Debug print only on value change to avoid flooding USB serial
+      static int lastPrintSpeed = -999;
+      static int lastPrintSteer = -999;
+      if (speed != lastPrintSpeed || steer != lastPrintSteer) {
+        Serial.printf("[CMD] speed=%d steer=%d\n", speed, steer);
+        lastPrintSpeed = speed;
+        lastPrintSteer = steer;
+      }
     } else {
       Serial.printf("[ERR] Bad C cmd: %s\n", line);
     }
@@ -143,15 +150,15 @@ void loop()
     Serial.println("[WDG] No command — motor stopped");
   }
 
-  // --- Stall detection ---
-  if (check_stall()) {
-    motor_stop();
-    currentSpeed = 0;
-    currentDirection = STOP;
-    // Report stall to Pi
-    Serial1.println("E:STALL");
-    Serial.println("[ERR] STALL DETECTED");
-  }
+  // --- Stall detection (disabled — encoder on GPIO 41/42 needs verification) ---
+  // TODO: Re-enable once encoder wiring is confirmed reliable
+  // if (check_stall()) {
+  //   motor_stop();
+  //   currentSpeed = 0;
+  //   currentDirection = STOP;
+  //   Serial1.println("E:STALL");
+  //   Serial.println("[ERR] STALL DETECTED");
+  // }
 
   // --- Status reporting to Pi (~50Hz) ---
   if (now - lastStatusTime >= STATUS_INTERVAL_MS) {

@@ -145,6 +145,12 @@ class Motor:
 
         except Exception as e:
             logger.error(f"Error reading ESP32 status: {e}")
+            # Flush the input buffer to avoid getting stuck in a read loop
+            try:
+                if self._serial:
+                    self._serial.reset_input_buffer()
+            except Exception:
+                pass
 
         return False
 
