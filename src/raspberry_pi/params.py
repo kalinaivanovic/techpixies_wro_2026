@@ -65,6 +65,10 @@ class Parameters:
     wheel_diameter_mm: float = 65.0  # DFRobot FIT0003 rubber wheel
     encoder_cpr: int = 1365  # 341.2 PPR × 4 (quadrature) — DFRobot FIT0450 34:1
 
+    # Auto mode speed control
+    auto_normal_speed: int = 60  # Speed for wall following (0-100)
+    auto_slow_speed: int = 35  # Speed for avoidance/corners (0-100)
+
     # LIDAR filtering
     lidar_min_distance: int = 60  # mm, ignore readings closer (robot body)
     lidar_min_quality: int = 10  # 0-47, minimum quality to accept

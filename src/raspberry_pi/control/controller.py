@@ -54,7 +54,7 @@ class Controller:
         self.track_map = TrackMap()
 
         # Decision
-        self.state_machine = StateMachine()
+        self.state_machine = StateMachine(params=self.params)
 
         # Visualizer (for web debug)
         self.visualizer = WorldStateVisualizer()

@@ -80,7 +80,7 @@ def main():
                 if self._can_auto:
                     from decision import StateMachine
                     from perception import TrackMap
-                    self.state_machine = StateMachine()
+                    self.state_machine = StateMachine(params=self.params)
                     self.track_map = TrackMap()
                 else:
                     class _StubState:
@@ -143,7 +143,7 @@ def main():
                 from config import CONTROL_LOOP_HZ
 
                 # Fresh state machine and track map each run
-                self.state_machine = StateMachine()
+                self.state_machine = StateMachine(params=self.params)
                 self.track_map = TrackMap()
                 self.state_machine.start()
                 self.motor.reset_encoder()

@@ -356,6 +356,30 @@
                         <div class="box-label">Distance</div>
                         <div class="box-value" id="distance">0 <span style="font-size:0.7rem;color:#888">cm</span></div>
                     </div>
+                    <!-- Base speed control -->
+                    <div class="box" style="cursor:pointer;border:2px solid #e0e0e0" onclick="toggleSpeedControl()">
+                        <div class="box-label">Base Speed</div>
+                        <div class="box-value" id="base-speed-display" style="font-size:1.1rem">60 / 35</div>
+                        <div style="font-size:0.65rem;color:#aaa;margin-top:4px">normal / slow &middot; click to edit</div>
+                    </div>
+                    <div id="speed-control-panel" style="display:none;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:14px">
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Normal Speed: <strong id="normal-speed-val">60</strong></label>
+                            <input type="range" id="normal-speed-slider" min="10" max="100" value="60"
+                                style="width:100%;margin-top:4px"
+                                oninput="onSpeedSlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Slow Speed: <strong id="slow-speed-val">35</strong></label>
+                            <input type="range" id="slow-speed-slider" min="10" max="100" value="35"
+                                style="width:100%;margin-top:4px"
+                                oninput="onSpeedSlider()">
+                        </div>
+                        <button onclick="saveSpeedParams()" style="
+                            width:100%;padding:6px;border:none;border-radius:6px;
+                            background:#6c5ce7;color:#fff;font-size:0.8rem;cursor:pointer;
+                        ">Save to file</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -872,6 +896,63 @@
 
         setInterval(pollStatus, 500);
         pollStatus();
+
+        // ── Base speed control ─────────────────────────────────────
+        function toggleSpeedControl() {
+            const panel = document.getElementById('speed-control-panel');
+            if (panel.style.display === 'none') {
+                // Fetch current params to sync sliders
+                fetch('/api/params').then(r => r.json()).then(data => {
+                    if (data.auto_normal_speed !== undefined) {
+                        document.getElementById('normal-speed-slider').value = data.auto_normal_speed;
+                        document.getElementById('normal-speed-val').textContent = data.auto_normal_speed;
+                    }
+                    if (data.auto_slow_speed !== undefined) {
+                        document.getElementById('slow-speed-slider').value = data.auto_slow_speed;
+                        document.getElementById('slow-speed-val').textContent = data.auto_slow_speed;
+                    }
+                }).catch(() => {});
+                panel.style.display = '';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function onSpeedSlider() {
+            const normal = parseInt(document.getElementById('normal-speed-slider').value);
+            const slow = parseInt(document.getElementById('slow-speed-slider').value);
+            document.getElementById('normal-speed-val').textContent = normal;
+            document.getElementById('slow-speed-val').textContent = slow;
+            document.getElementById('base-speed-display').textContent = normal + ' / ' + slow;
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({auto_normal_speed: normal, auto_slow_speed: slow})
+            }).catch(() => {});
+        }
+
+        function saveSpeedParams() {
+            const normal = parseInt(document.getElementById('normal-speed-slider').value);
+            const slow = parseInt(document.getElementById('slow-speed-slider').value);
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({auto_normal_speed: normal, auto_slow_speed: slow, _save: true})
+            }).then(() => {
+                const btn = event.target;
+                btn.textContent = 'Saved!';
+                btn.style.background = '#00b894';
+                setTimeout(() => { btn.textContent = 'Save to file'; btn.style.background = '#6c5ce7'; }, 1500);
+            }).catch(() => {});
+        }
+
+        // Load initial speed values
+        fetch('/api/params').then(r => r.json()).then(data => {
+            if (data.auto_normal_speed !== undefined && data.auto_slow_speed !== undefined) {
+                document.getElementById('base-speed-display').textContent =
+                    data.auto_normal_speed + ' / ' + data.auto_slow_speed;
+            }
+        }).catch(() => {});
 
         // ── Pi system info (only shown on Raspberry Pi) ───────────
         function pollSystem() {

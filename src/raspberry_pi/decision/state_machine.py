@@ -67,11 +67,13 @@ class StateMachine:
         avoidance: AvoidanceStrategy = None,
         corner: CornerStrategy = None,
         parking: ParkingStrategy = None,
+        params=None,
     ):
         self.state = RobotState.IDLE
         self.lap_count = 0
         self.target_laps = 3
         self.direction: Optional[str] = None  # "CW" or "CCW"
+        self.params = params  # Shared Parameters for runtime speed tuning
 
         # Strategies
         self.wall_follow = wall_follow or ProportionalWallFollow()
@@ -115,6 +117,12 @@ class StateMachine:
 
         if self.state == RobotState.DONE:
             return 0, STEERING_CENTER
+
+        # Sync strategy speeds from runtime params
+        if self.params:
+            self.wall_follow.normal_speed = self.params.auto_normal_speed
+            self.avoidance.slow_speed = self.params.auto_slow_speed
+            self.corner.slow_speed = self.params.auto_slow_speed
 
         # Update direction from track map
         if self.direction is None and track_map.direction:
