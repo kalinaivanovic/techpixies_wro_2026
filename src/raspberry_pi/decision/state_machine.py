@@ -174,7 +174,11 @@ class StateMachine:
                 self._avoiding_pillar = world.blocking_pillar.color
                 self._avoid_phase = 0
                 self._avoid_frames = 0
-                logger.info(f"Transition: WALL_FOLLOW -> AVOID_PILLAR ({self._avoiding_pillar})")
+                p = world.blocking_pillar
+                logger.info(
+                    f"Transition: WALL_FOLLOW -> AVOID_PILLAR "
+                    f"({p.color} dist={p.distance:.0f}mm angle={p.angle:.1f}°)"
+                )
 
             # Priority 2: Corner detected
             elif world.is_corner_approaching:
