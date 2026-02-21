@@ -163,10 +163,9 @@ def main():
                     except asyncio.CancelledError:
                         pass
                     self._auto_task = None
-                # Stop motor (keepalive thread will send the 0 speed)
+                # Stop motor and center steering
                 if self.motor:
-                    self.motor._speed = 0
-                    self.motor._steering = 90
+                    self.motor.drive(0, 90)
                 self._latest_world = None
                 logger.info("Auto mode stopped")
 
@@ -214,8 +213,7 @@ def main():
                     logger.error(f"Auto loop error: {e}", exc_info=True)
                 finally:
                     if self.motor:
-                        self.motor._speed = 0
-                        self.motor._steering = 90
+                        self.motor.drive(0, 90)
                     self._auto_running = False
 
         sensors = DebugSensors(use_lidar=args.lidar, use_motor=args.motor)
