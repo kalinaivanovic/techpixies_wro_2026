@@ -903,16 +903,39 @@
         setInterval(pollSystem, 2000);
         pollSystem();
 
+        // ── Stream management ────────────────────────────────────
+        // Browsers limit to 6 concurrent HTTP/1.1 connections per origin.
+        // The architecture page has 4 always-on MJPEG streams. Opening an
+        // overlay adds more. To keep fetch() (params, status) working,
+        // we pause background streams when an overlay opens.
+
+        function pauseBackgroundStreams() {
+            document.getElementById('ws-birdseye').src = '';
+            document.getElementById('ws-camera').src = '';
+            document.getElementById('lidar-view').src = '';
+            document.getElementById('camera-view').src = '';
+        }
+
+        function resumeBackgroundStreams() {
+            document.getElementById('ws-birdseye').src = '/stream/worldstate';
+            document.getElementById('ws-camera').src = '/stream/worldstate/camera';
+            document.getElementById('lidar-view').src = '/stream/lidar';
+            document.getElementById('camera-view').src = '/stream/camera';
+        }
+
         // ── WorldState overlays ───────────────────────────────────
         function openWorldstateOverlay() {
+            pauseBackgroundStreams();
             document.getElementById('ws-overlay').style.display = 'block';
             document.getElementById('overlay-ws-birdseye').src = '/stream/worldstate';
         }
         function closeWorldstateOverlay() {
             document.getElementById('ws-overlay').style.display = 'none';
             document.getElementById('overlay-ws-birdseye').src = '';
+            resumeBackgroundStreams();
         }
         function openWorldstateCameraOverlay() {
+            pauseBackgroundStreams();
             document.getElementById('ws-camera-overlay').style.display = 'block';
             document.getElementById('overlay-ws-camera').src = '/stream/worldstate/camera';
             document.getElementById('overlay-ws-camera-birdseye').src = '/stream/worldstate';
@@ -921,10 +944,12 @@
             document.getElementById('ws-camera-overlay').style.display = 'none';
             document.getElementById('overlay-ws-camera').src = '';
             document.getElementById('overlay-ws-camera-birdseye').src = '';
+            resumeBackgroundStreams();
         }
 
         // ── LIDAR overlay ───────────────────────────────────────
         function openLidarOverlay() {
+            pauseBackgroundStreams();
             document.getElementById('lidar-overlay').style.display = 'block';
             document.getElementById('overlay-lidar').src = '/stream/lidar';
             document.getElementById('overlay-lidar-raw').src = '/stream/lidar/raw';
@@ -945,6 +970,7 @@
             document.getElementById('lidar-overlay').style.display = 'none';
             document.getElementById('overlay-lidar').src = '';
             document.getElementById('overlay-lidar-raw').src = '';
+            resumeBackgroundStreams();
         }
 
         let lidarParamTimer = null;
@@ -995,6 +1021,7 @@
         let hsvDefaults = null;  // Stored on first load for reset
 
         function openCameraOverlay() {
+            pauseBackgroundStreams();
             document.getElementById('camera-overlay').style.display = 'block';
             document.getElementById('overlay-camera').src = '/stream/camera';
             document.getElementById('overlay-red').src = '/stream/camera/red';
@@ -1009,6 +1036,7 @@
             document.getElementById('overlay-red').src = '';
             document.getElementById('overlay-green').src = '';
             document.getElementById('overlay-magenta').src = '';
+            resumeBackgroundStreams();
         }
 
         function selectColorTab(color) {
@@ -1198,6 +1226,7 @@
         bindButton('btn-right', mcRight);
 
         function openManualControl() {
+            pauseBackgroundStreams();
             document.getElementById('manual-overlay').style.display = 'block';
             document.getElementById('mc-camera').src = '/stream/camera';
             mcStatus.textContent = 'Ready';
@@ -1208,6 +1237,7 @@
             document.getElementById('manual-overlay').style.display = 'none';
             document.getElementById('mc-camera').src = '';
             mcStop();
+            resumeBackgroundStreams();
         }
 
         // ── Keyboard shortcuts ──────────────────────────────────

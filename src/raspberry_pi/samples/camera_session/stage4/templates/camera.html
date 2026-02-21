@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stage 4 - From Pixels to Decisions</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            font-weight: 400;
+            font-size: 1.6rem;
+            color: #e0e0e0;
+            margin-bottom: 4px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+        }
+
+        /* ── Layout ─────────────────────────────────── */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 360px;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* ── Camera section ─────────────────────────── */
+        .label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: #666;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        .main-feed { margin-bottom: 12px; }
+        .main-feed img {
+            width: 100%;
+            border-radius: 8px;
+            background: #222;
+            border: 1px solid #333;
+        }
+        .masks { display: flex; gap: 8px; margin-bottom: 16px; }
+        .mask-box { flex: 1; }
+        .mask-box img {
+            width: 100%;
+            border-radius: 6px;
+            background: #222;
+            border: 1px solid #333;
+        }
+        .red { color: #ff6b6b; }
+        .green { color: #51cf66; }
+        .magenta { color: #e599f7; }
+
+        /* ── Pipeline diagram ───────────────────────── */
+        .pipeline {
+            background: #0f3460;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid #16213e;
+        }
+        .pipeline-title {
+            font-size: 0.8rem;
+            color: #74b9ff;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .pipeline-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .pipe-box {
+            background: #16213e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 0.7rem;
+            text-align: center;
+            min-width: 80px;
+            transition: border-color 0.3s, background 0.3s;
+        }
+        .pipe-box.active {
+            border-color: #00b894;
+            background: #0a3d2e;
+        }
+        .pipe-box .pipe-label {
+            color: #888;
+            font-size: 0.6rem;
+            display: block;
+        }
+        .pipe-box .pipe-value {
+            color: #eee;
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+        .pipe-arrow {
+            color: #555;
+            font-size: 1.2rem;
+        }
+
+        /* ── Right panel ────────────────────────────── */
+        .panel {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 12px;
+            border: 1px solid #1a1a40;
+        }
+        .panel-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #333;
+        }
+
+        /* ── WorldState panel ───────────────────────── */
+        .world-title { color: #fdcb6e; }
+
+        .world-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            font-size: 0.8rem;
+        }
+        .world-label { color: #aaa; }
+        .world-value { color: #eee; font-family: monospace; }
+
+        .pillar-list {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #2d2d4e;
+        }
+        .pillar-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            margin-bottom: 4px;
+            background: #1a1a3a;
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+        .pillar-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .pillar-dot.red { background: #ff6b6b; }
+        .pillar-dot.green { background: #51cf66; }
+        .pillar-info { flex: 1; }
+        .pillar-action {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: #333;
+        }
+        .no-pillars {
+            color: #555;
+            font-size: 0.8rem;
+            font-style: italic;
+            padding: 8px 0;
+        }
+
+        /* ── Decision panel ─────────────────────────── */
+        .decision-title { color: #a29bfe; }
+
+        .state-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .state-wall-follow {
+            background: #00b894;
+            color: #fff;
+        }
+        .state-avoid-pillar {
+            background: #e17055;
+            color: #fff;
+        }
+
+        .output-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+        }
+        .output-box {
+            flex: 1;
+            text-align: center;
+            background: #1a1a3a;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .output-label {
+            font-size: 0.65rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .output-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            font-family: monospace;
+            margin-top: 2px;
+        }
+        .output-unit {
+            font-size: 0.65rem;
+            color: #666;
+        }
+
+        /* ── Steering visualization ─────────────────── */
+        .steering-viz {
+            margin-top: 10px;
+            text-align: center;
+        }
+        .steering-bar {
+            position: relative;
+            height: 20px;
+            background: #1a1a3a;
+            border-radius: 10px;
+            margin: 6px 0;
+            overflow: hidden;
+        }
+        .steering-center {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #555;
+            transform: translateX(-50%);
+        }
+        .steering-indicator {
+            position: absolute;
+            top: 2px;
+            bottom: 2px;
+            width: 16px;
+            background: #74b9ff;
+            border-radius: 8px;
+            transition: left 0.15s;
+        }
+        .steering-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.6rem;
+            color: #555;
+        }
+
+        /* ── Explanation section ─────────────────────── */
+        .explanation {
+            grid-column: 1 / -1;
+            background: #16213e;
+            border-radius: 10px;
+            padding: 16px 20px;
+            border: 1px solid #1a1a40;
+            margin-top: 8px;
+        }
+        .explanation h3 {
+            color: #74b9ff;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .explanation p {
+            color: #aaa;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            margin-bottom: 6px;
+        }
+        .explanation code {
+            background: #0f3460;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            color: #74b9ff;
+        }
+
+        /* ── Mobile ─────────────────────────────────── */
+        @media (max-width: 900px) {
+            .grid { grid-template-columns: 1fr; }
+            .explanation { grid-column: 1; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Stage 4 &mdash; From Pixels to Decisions</h1>
+    <p class="subtitle">Camera &rarr; Fusion &rarr; WorldState &rarr; Decision &rarr; Motor</p>
+
+    <div class="grid">
+        <!-- Left column: camera + pipeline -->
+        <div>
+            <div class="main-feed">
+                <div class="label">Camera Feed (with detections)</div>
+                <img src="/stream/camera" alt="Camera" />
+            </div>
+
+            <div class="masks">
+                <div class="mask-box">
+                    <div class="label red">Red Mask</div>
+                    <img src="/stream/camera/red" alt="Red" />
+                </div>
+                <div class="mask-box">
+                    <div class="label green">Green Mask</div>
+                    <img src="/stream/camera/green" alt="Green" />
+                </div>
+                <div class="mask-box">
+                    <div class="label magenta">Magenta Mask</div>
+                    <img src="/stream/camera/magenta" alt="Magenta" />
+                </div>
+            </div>
+
+            <!-- Pipeline visualization -->
+            <div class="pipeline">
+                <div class="pipeline-title">Data Pipeline (live)</div>
+                <div class="pipeline-flow">
+                    <div class="pipe-box active" id="pipe-camera">
+                        <span class="pipe-label">Camera</span>
+                        <span class="pipe-value" id="pipe-blobs">0 blobs</span>
+                    </div>
+                    <span class="pipe-arrow">&rarr;</span>
+                    <div class="pipe-box" id="pipe-fusion">
+                        <span class="pipe-label">Fusion</span>
+                        <span class="pipe-value" id="pipe-pillars">0 pillars</span>
+                    </div>
+                    <span class="pipe-arrow">&rarr;</span>
+                    <div class="pipe-box" id="pipe-world">
+                        <span class="pipe-label">WorldState</span>
+                        <span class="pipe-value" id="pipe-world-val">clear</span>
+                    </div>
+                    <span class="pipe-arrow">&rarr;</span>
+                    <div class="pipe-box" id="pipe-decision">
+                        <span class="pipe-label">Decision</span>
+                        <span class="pipe-value" id="pipe-decision-val">FOLLOW</span>
+                    </div>
+                    <span class="pipe-arrow">&rarr;</span>
+                    <div class="pipe-box" id="pipe-motor">
+                        <span class="pipe-label">Motor</span>
+                        <span class="pipe-value" id="pipe-motor-val">40 / 90</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right column: WorldState + Decision -->
+        <div>
+            <!-- WorldState panel -->
+            <div class="panel">
+                <div class="panel-title world-title">WorldState</div>
+
+                <div class="world-row">
+                    <span class="world-label">Left wall</span>
+                    <span class="world-value" id="wall-left">--</span>
+                </div>
+                <div class="world-row">
+                    <span class="world-label">Right wall</span>
+                    <span class="world-value" id="wall-right">--</span>
+                </div>
+                <div class="world-row">
+                    <span class="world-label">Front wall</span>
+                    <span class="world-value" id="wall-front">--</span>
+                </div>
+                <div class="world-row">
+                    <span class="world-label">Corridor width</span>
+                    <span class="world-value" id="corridor">--</span>
+                </div>
+                <div class="world-row">
+                    <span class="world-label">Corner ahead</span>
+                    <span class="world-value" id="corner">none</span>
+                </div>
+
+                <div class="pillar-list" id="pillar-list">
+                    <div class="label">Confirmed Pillars</div>
+                    <div class="no-pillars" id="no-pillars">No pillars detected</div>
+                </div>
+            </div>
+
+            <!-- Decision panel -->
+            <div class="panel">
+                <div class="panel-title decision-title">Decision</div>
+
+                <div id="state-badge" class="state-badge state-wall-follow">WALL_FOLLOW</div>
+
+                <div class="output-row">
+                    <div class="output-box">
+                        <div class="output-label">Speed</div>
+                        <div class="output-value" id="out-speed">0</div>
+                        <div class="output-unit">(-100 to 100)</div>
+                    </div>
+                    <div class="output-box">
+                        <div class="output-label">Steering</div>
+                        <div class="output-value" id="out-steering">90</div>
+                        <div class="output-unit">(0=left 90=center 180=right)</div>
+                    </div>
+                </div>
+
+                <!-- Steering visualization -->
+                <div class="steering-viz">
+                    <div class="label">Steering direction</div>
+                    <div class="steering-bar">
+                        <div class="steering-center"></div>
+                        <div class="steering-indicator" id="steer-indicator"></div>
+                    </div>
+                    <div class="steering-labels">
+                        <span>LEFT (0)</span>
+                        <span>CENTER (90)</span>
+                        <span>RIGHT (180)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HSV tuning (compact) -->
+            <div class="panel">
+                <div class="panel-title" style="color:#74b9ff">HSV Parameters</div>
+                <div style="color:#888; font-size:0.75rem; margin-bottom:8px;">
+                    Adjust detection ranges (same as Stage 3)
+                </div>
+                <div id="param-sliders"></div>
+                <button onclick="saveParams()" style="
+                    width:100%; padding:8px; border:none; border-radius:6px;
+                    background:#00b894; color:white; font-weight:600;
+                    cursor:pointer; margin-top:8px; font-size:0.8rem;
+                ">Save Parameters</button>
+            </div>
+        </div>
+
+        <!-- Bottom: explanation -->
+        <div class="explanation">
+            <h3>How this works</h3>
+            <p>
+                <strong>1. Camera</strong> captures a frame and runs color detection (HSV filtering).
+                It finds colored blobs: <code>"red at +15 degrees"</code>.
+            </p>
+            <p>
+                <strong>2. Sensor Fusion</strong> takes the camera blobs and tries to match them
+                with LIDAR objects at the same angle. If a small object matches a colored blob,
+                it's confirmed as a pillar. (In this demo, LIDAR is simulated from camera data.)
+            </p>
+            <p>
+                <strong>3. WorldState</strong> packages everything the robot knows:
+                wall distances, confirmed pillars, corner detection.
+                The decision layer only reads this — never raw sensor data.
+            </p>
+            <p>
+                <strong>4. Decision</strong> is a state machine. In WALL_FOLLOW it stays centered.
+                When a blocking pillar appears, it switches to AVOID_PILLAR:
+                <code>RED → steer left</code>, <code>GREEN → steer right</code>.
+            </p>
+            <p>
+                <strong>5. Motor output</strong> is the final (speed, steering) command.
+                On the real robot, this goes to the ESP32 via UART.
+                Here it's just displayed.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // ── Poll WorldState and Decision at ~5 Hz ──────────
+
+        async function pollState() {
+            try {
+                const [worldRes, decisionRes] = await Promise.all([
+                    fetch('/api/world'),
+                    fetch('/api/decision'),
+                ]);
+                const world = await worldRes.json();
+                const decision = await decisionRes.json();
+
+                updateWorldPanel(world);
+                updateDecisionPanel(decision);
+                updatePipeline(world, decision);
+            } catch (e) {
+                // Server not ready yet
+            }
+        }
+
+        function updateWorldPanel(world) {
+            // Walls
+            document.getElementById('wall-left').textContent =
+                world.walls.left ? world.walls.left.toFixed(0) + ' mm' : '--';
+            document.getElementById('wall-right').textContent =
+                world.walls.right ? world.walls.right.toFixed(0) + ' mm' : '--';
+            document.getElementById('wall-front').textContent =
+                world.walls.front ? world.walls.front.toFixed(0) + ' mm' : '--';
+            document.getElementById('corridor').textContent =
+                world.walls.corridor_width ? world.walls.corridor_width.toFixed(0) + ' mm' : '--';
+
+            // Corner
+            document.getElementById('corner').textContent =
+                world.corner_ahead || 'none';
+
+            // Pillars
+            const list = document.getElementById('pillar-list');
+            const noPillars = document.getElementById('no-pillars');
+
+            // Remove old pillar items (keep label and no-pillars div)
+            list.querySelectorAll('.pillar-item').forEach(el => el.remove());
+
+            if (world.pillars.length === 0) {
+                noPillars.style.display = 'block';
+            } else {
+                noPillars.style.display = 'none';
+                world.pillars.forEach(p => {
+                    const item = document.createElement('div');
+                    item.className = 'pillar-item';
+                    item.innerHTML = `
+                        <div class="pillar-dot ${p.color}"></div>
+                        <div class="pillar-info">
+                            ${p.color.toUpperCase()} at ${p.angle.toFixed(0)}&deg;,
+                            ${p.distance.toFixed(0)}mm
+                        </div>
+                        <span class="pillar-action">pass ${p.pass_side}</span>
+                    `;
+                    list.appendChild(item);
+                });
+            }
+        }
+
+        function updateDecisionPanel(decision) {
+            // State badge
+            const badge = document.getElementById('state-badge');
+            badge.textContent = decision.state;
+            badge.className = 'state-badge';
+            if (decision.state === 'WALL_FOLLOW') {
+                badge.classList.add('state-wall-follow');
+            } else if (decision.state === 'AVOID_PILLAR') {
+                badge.classList.add('state-avoid-pillar');
+            }
+
+            // Speed and steering
+            document.getElementById('out-speed').textContent = decision.speed;
+            document.getElementById('out-steering').textContent = decision.steering;
+
+            // Steering indicator (0-180 mapped to 0-100%)
+            const pct = (decision.steering / 180) * 100;
+            const indicator = document.getElementById('steer-indicator');
+            indicator.style.left = `calc(${pct}% - 8px)`;
+
+            // Color the indicator based on direction
+            if (decision.steering < 80) {
+                indicator.style.background = '#ff6b6b'; // turning left
+            } else if (decision.steering > 100) {
+                indicator.style.background = '#51cf66'; // turning right
+            } else {
+                indicator.style.background = '#74b9ff'; // straight
+            }
+        }
+
+        function updatePipeline(world, decision) {
+            // Update pipeline boxes
+            const blobCount = world.pillars.length; // approximate
+            document.getElementById('pipe-blobs').textContent =
+                blobCount + ' blob' + (blobCount !== 1 ? 's' : '');
+
+            document.getElementById('pipe-pillars').textContent =
+                world.pillars.length + ' pillar' + (world.pillars.length !== 1 ? 's' : '');
+
+            document.getElementById('pipe-world-val').textContent =
+                world.has_pillars ? 'PILLAR!' : 'clear';
+
+            document.getElementById('pipe-decision-val').textContent =
+                decision.state === 'WALL_FOLLOW' ? 'FOLLOW' : 'AVOID';
+
+            document.getElementById('pipe-motor-val').textContent =
+                decision.speed + ' / ' + decision.steering;
+
+            // Highlight active boxes
+            const boxes = document.querySelectorAll('.pipe-box');
+            boxes.forEach(box => box.classList.remove('active'));
+            document.getElementById('pipe-camera').classList.add('active');
+            if (world.has_pillars) {
+                document.getElementById('pipe-fusion').classList.add('active');
+                document.getElementById('pipe-world').classList.add('active');
+                document.getElementById('pipe-decision').classList.add('active');
+                document.getElementById('pipe-motor').classList.add('active');
+            }
+        }
+
+        // ── HSV Parameter sliders (compact) ────────────────
+
+        const PARAM_GROUPS = [
+            { label: 'Red 1', params: ['red_h_min', 'red_h_max', 'red_s_min', 'red_v_min'] },
+            { label: 'Red 2', params: ['red_h_min2', 'red_h_max2', 'red_s_min2', 'red_v_min2'] },
+            { label: 'Green', params: ['green_h_min', 'green_h_max', 'green_s_min', 'green_v_min'] },
+            { label: 'Magenta', params: ['magenta_h_min', 'magenta_h_max', 'magenta_s_min', 'magenta_v_min'] },
+            { label: 'Detection', params: ['min_area'] },
+        ];
+
+        const MAX_VALUES = {
+            'min_area': 5000,
+        };
+
+        async function loadParams() {
+            const res = await fetch('/api/params');
+            const params = await res.json();
+
+            const container = document.getElementById('param-sliders');
+            container.innerHTML = '';
+
+            PARAM_GROUPS.forEach(group => {
+                const title = document.createElement('div');
+                title.style.cssText = 'color:#888; font-size:0.65rem; margin:6px 0 2px; text-transform:uppercase; letter-spacing:1px;';
+                title.textContent = group.label;
+                container.appendChild(title);
+
+                group.params.forEach(key => {
+                    if (!(key in params)) return;
+                    const max = MAX_VALUES[key] || (key.includes('_h_') ? 180 : 255);
+
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display:flex; align-items:center; gap:6px; margin-bottom:3px;';
+
+                    const shortLabel = key.split('_').slice(-2).join(' ');
+                    row.innerHTML = `
+                        <span style="width:45px; font-size:0.65rem; color:#777; text-align:right">${shortLabel}</span>
+                        <input type="range" min="0" max="${max}" value="${params[key]}"
+                            data-param="${key}"
+                            style="flex:1; height:4px; -webkit-appearance:none; background:#333; border-radius:2px; outline:none;">
+                        <span style="width:28px; font-size:0.65rem; color:#999; font-family:monospace">${params[key]}</span>
+                    `;
+                    container.appendChild(row);
+
+                    const slider = row.querySelector('input');
+                    const valSpan = row.querySelector('span:last-child');
+                    slider.addEventListener('input', () => {
+                        valSpan.textContent = slider.value;
+                        sendParam(key, slider.value);
+                    });
+                });
+            });
+        }
+
+        async function sendParam(key, value) {
+            const body = {};
+            body[key] = parseInt(value);
+            await fetch('/api/params', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+        }
+
+        async function saveParams() {
+            await fetch('/api/params', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ _save: true }),
+            });
+            alert('Parameters saved to disk!');
+        }
+
+        // ── Start polling ──────────────────────────────────
+
+        loadParams();
+        setInterval(pollState, 200);  // 5 Hz
+    </script>
+</body>
+</html>
