@@ -99,11 +99,11 @@ MIN_CONTOUR_AREA = 300
 # =============================================================================
 
 # Angle matching threshold for LIDAR-camera fusion (degrees)
-ANGLE_MATCH_THRESHOLD = 15.0
+ANGLE_MATCH_THRESHOLD = 40.0
 
 # Expected pillar size range (mm)
 PILLAR_SIZE_MIN = 30.0
-PILLAR_SIZE_MAX = 100.0
+PILLAR_SIZE_MAX = 1000.0
 
 # =============================================================================
 # WEB INTERFACE
