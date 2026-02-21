@@ -37,37 +37,49 @@ class AvoidanceStrategy(ABC):
 
 class ProportionalAvoidance(AvoidanceStrategy):
     """
-    Steer proportionally to pillar distance.
+    Steer proportionally to pillar distance and angle.
 
     Closer pillar = sharper turn. Direction based on pillar color.
+    Pillar angle adds extra correction (pillar to the right → steer harder left).
     """
 
     def __init__(
         self,
         slow_speed: int = 35,
         steering_center: int = 90,
-        max_steer_offset: int = 25,
+        max_steer_offset: int = 40,
         max_distance: float = 800.0,
-        steering_min: int = 60,
-        steering_max: int = 120,
+        angle_gain: float = 0.5,
+        steering_min: int = 45,
+        steering_max: int = 135,
     ):
         self.slow_speed = slow_speed
         self.steering_center = steering_center
         self.max_steer_offset = max_steer_offset
         self.max_distance = max_distance
+        self.angle_gain = angle_gain
         self.steering_min = steering_min
         self.steering_max = steering_max
 
     def compute(
         self, pillar: Pillar, world: WorldState
     ) -> Tuple[int, int]:
-        # RED → steer left (-1) to pass on right
-        # GREEN → steer right (+1) to pass on left
+        # RED → pass on RIGHT → steer LEFT (steering < 90)
+        # GREEN → pass on LEFT → steer RIGHT (steering > 90)
         direction = -1 if pillar.color == "red" else 1
 
-        # Urgency: 0.0 when far, 1.0 when close
+        # Urgency from distance: 0.0 when far, 1.0 when close
         urgency = 1.0 - min(pillar.distance / self.max_distance, 1.0)
-        offset = int(urgency * self.max_steer_offset)
+        base_offset = urgency * self.max_steer_offset
+
+        # Angle correction: steer harder when pillar is on the pass side.
+        # pillar.angle: positive = right, negative = left
+        # RED (direction=-1): pillar right (+angle) → needs more left steer
+        # GREEN (direction=+1): pillar left (-angle) → needs more right steer
+        angle_correction = -direction * pillar.angle * self.angle_gain
+
+        offset = int(base_offset + angle_correction)
+        offset = max(0, min(self.max_steer_offset, offset))
 
         steering = self.steering_center + (direction * offset)
         steering = max(self.steering_min, min(self.steering_max, steering))
