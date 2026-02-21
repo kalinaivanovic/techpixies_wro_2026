@@ -204,8 +204,19 @@ class StateMachine:
                 logger.info(f"Transition: AVOID_PILLAR -> WALL_FOLLOW (after {self._avoid_frames} frames)")
 
         elif self.state == RobotState.CORNER:
+            # Pillar overrides corner (higher priority)
+            if world.blocking_pillar:
+                self.state = RobotState.AVOID_PILLAR
+                self._avoiding_pillar = world.blocking_pillar.color
+                self._avoid_phase = 0
+                self._avoid_frames = 0
+                p = world.blocking_pillar
+                logger.info(
+                    f"Transition: CORNER -> AVOID_PILLAR "
+                    f"({p.color} dist={p.distance:.0f}mm angle={p.angle:.1f}°)"
+                )
             # Return to wall follow when corner cleared
-            if not world.is_corner_approaching:
+            elif not world.is_corner_approaching:
                 self.state = RobotState.WALL_FOLLOW
                 # Check if we completed a lap (counted by 4 corners)
                 if track_map.corner_count > 0 and track_map.corner_count % 4 == 0:
