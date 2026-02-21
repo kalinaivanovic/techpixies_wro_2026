@@ -63,6 +63,7 @@ class SensorFusion:
         self.clustering = clustering or OpenCVClustering()
         self.corner = corner or LidarCornerDetection()
         self.wall_detection = wall_detection or AverageWallDetection()
+        self._last_pillar_count = 0  # For change-only logging
 
     def update(self) -> WorldState:
         """
@@ -129,27 +130,12 @@ class SensorFusion:
         # Only consider red and green blobs
         pillar_blobs = [b for b in blobs if b.color in ("red", "green")]
 
-        if pillar_blobs:
-            logger.info(
-                f"FUSION blobs: {[(b.color, f'{b.angle:.1f}°', b.area) for b in pillar_blobs]} | "
-                f"LIDAR objects: {[(f'{o.angle:.1f}°', f'{o.distance:.0f}mm', f'w={o.width:.0f}mm') for o in objects]}"
-            )
-
         for blob in pillar_blobs:
             best_match = None
             best_angle_diff = float("inf")
 
             for i, obj in enumerate(objects):
                 if i in used_objects:
-                    continue
-
-                # Only match pillar-sized objects
-                if not (PILLAR_SIZE_MIN <= obj.width <= PILLAR_SIZE_MAX):
-                    if pillar_blobs:
-                        logger.debug(
-                            f"  skip obj {obj.angle:.1f}° w={obj.width:.0f}mm "
-                            f"(need {PILLAR_SIZE_MIN}-{PILLAR_SIZE_MAX}mm)"
-                        )
                     continue
 
                 # Convert LIDAR angle to camera reference
@@ -177,16 +163,15 @@ class SensorFusion:
                         distance=obj.distance,
                     )
                 )
-                logger.info(
-                    f"  MATCHED {blob.color} blob@{blob.angle:.1f}° ↔ "
-                    f"obj@{obj.angle:.1f}° dist={obj.distance:.0f}mm "
-                    f"(diff={best_angle_diff:.1f}°)"
-                )
+
+        # Log only on state changes (pillar found/lost)
+        if len(pillars) != self._last_pillar_count:
+            if pillars:
+                for p in pillars:
+                    logger.info(f"PILLAR {p.color.upper()} dist={p.distance:.0f}mm angle={p.angle:.1f}°")
             else:
-                logger.info(
-                    f"  NO MATCH for {blob.color} blob@{blob.angle:.1f}° "
-                    f"area={blob.area}"
-                )
+                logger.info("PILLAR lost — no matches")
+            self._last_pillar_count = len(pillars)
 
         return pillars
 

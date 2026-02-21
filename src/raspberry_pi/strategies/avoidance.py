@@ -65,6 +65,7 @@ class ProportionalAvoidance(AvoidanceStrategy):
         self.angle_gain = angle_gain
         self.steering_min = steering_min
         self.steering_max = steering_max
+        self._log_count = 0
 
     def compute(
         self, pillar: Pillar, world: WorldState
@@ -93,12 +94,12 @@ class ProportionalAvoidance(AvoidanceStrategy):
         steering = self.steering_center + (direction * offset)
         steering = max(self.steering_min, min(self.steering_max, steering))
 
-        logger.info(
-            f"AVOID {pillar.color.upper()} dist={pillar.distance:.0f}mm "
-            f"angle={pillar.angle:.1f}° dir={direction:+d} "
-            f"urgency={urgency:.2f} base_off={base_offset:.1f} "
-            f"ang_corr={angle_correction:.1f} offset={offset} "
-            f"→ speed={self.slow_speed} steer={steering}°"
-        )
+        self._log_count += 1
+        if self._log_count % 10 == 1:  # Log every 10th call (~5Hz at 50Hz loop)
+            logger.info(
+                f"AVOID {pillar.color.upper()} dist={pillar.distance:.0f}mm "
+                f"angle={pillar.angle:.1f}° "
+                f"→ speed={self.slow_speed} steer={steering}°"
+            )
 
         return self.slow_speed, steering
