@@ -47,15 +47,17 @@ class ProportionalAvoidance(AvoidanceStrategy):
         self,
         slow_speed: int = 35,
         steering_center: int = 90,
-        max_steer_offset: int = 40,
+        max_steer_offset: int = 55,
+        min_steer_offset: int = 20,
         max_distance: float = 800.0,
         angle_gain: float = 0.5,
-        steering_min: int = 45,
-        steering_max: int = 135,
+        steering_min: int = 35,
+        steering_max: int = 145,
     ):
         self.slow_speed = slow_speed
         self.steering_center = steering_center
         self.max_steer_offset = max_steer_offset
+        self.min_steer_offset = min_steer_offset
         self.max_distance = max_distance
         self.angle_gain = angle_gain
         self.steering_min = steering_min
@@ -69,8 +71,12 @@ class ProportionalAvoidance(AvoidanceStrategy):
         direction = -1 if pillar.color == "red" else 1
 
         # Urgency from distance: 0.0 when far, 1.0 when close
-        urgency = 1.0 - min(pillar.distance / self.max_distance, 1.0)
-        base_offset = urgency * self.max_steer_offset
+        # Quadratic curve — ramps up faster at medium distance
+        linear = 1.0 - min(pillar.distance / self.max_distance, 1.0)
+        urgency = linear * linear
+        base_offset = self.min_steer_offset + urgency * (
+            self.max_steer_offset - self.min_steer_offset
+        )
 
         # Angle correction: steer harder when pillar is on the pass side.
         # pillar.angle: positive = right, negative = left
@@ -79,7 +85,7 @@ class ProportionalAvoidance(AvoidanceStrategy):
         angle_correction = -direction * pillar.angle * self.angle_gain
 
         offset = int(base_offset + angle_correction)
-        offset = max(0, min(self.max_steer_offset, offset))
+        offset = max(self.min_steer_offset, min(self.max_steer_offset, offset))
 
         steering = self.steering_center + (direction * offset)
         steering = max(self.steering_min, min(self.steering_max, steering))
