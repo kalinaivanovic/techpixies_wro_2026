@@ -9,10 +9,13 @@ WRO rules:
 - GREEN pillar → pass on LEFT (steer right)
 """
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Tuple
 
 from perception.world_state import Pillar, WorldState
+
+logger = logging.getLogger(__name__)
 
 
 class AvoidanceStrategy(ABC):
@@ -89,5 +92,13 @@ class ProportionalAvoidance(AvoidanceStrategy):
 
         steering = self.steering_center + (direction * offset)
         steering = max(self.steering_min, min(self.steering_max, steering))
+
+        logger.info(
+            f"AVOID {pillar.color.upper()} dist={pillar.distance:.0f}mm "
+            f"angle={pillar.angle:.1f}° dir={direction:+d} "
+            f"urgency={urgency:.2f} base_off={base_offset:.1f} "
+            f"ang_corr={angle_correction:.1f} offset={offset} "
+            f"→ speed={self.slow_speed} steer={steering}°"
+        )
 
         return self.slow_speed, steering

@@ -84,6 +84,8 @@ class StateMachine:
         # For pillar avoidance state
         self._avoiding_pillar: Optional[str] = None  # Color being avoided
         self._avoid_phase = 0  # 0=approach, 1=passing, 2=returning
+        self._avoid_frames = 0  # How many frames in AVOID_PILLAR
+        self._min_avoid_frames = 15  # Stay in avoidance at least this many frames (~0.3s at 50Hz)
 
     def start(self):
         """Start the race."""
@@ -136,9 +138,17 @@ class StateMachine:
             return self.wall_follow.compute(world)
 
         elif self.state == RobotState.AVOID_PILLAR:
-            pillar = world.blocking_pillar
+            # Use blocking pillar, or closest pillar, or any visible pillar
+            pillar = world.blocking_pillar or world.closest_pillar
             if pillar is None:
-                return self.wall_follow.compute(world)
+                # Pillar lost from view — keep steering in avoidance direction
+                direction = -1 if self._avoiding_pillar == "red" else 1
+                steer = self.avoidance.steering_center + (direction * self.avoidance.min_steer_offset)
+                logger.info(
+                    f"AVOID blind: no pillar visible, holding steer={steer}° "
+                    f"(was {self._avoiding_pillar}, frame {self._avoid_frames})"
+                )
+                return self.avoidance.slow_speed, steer
             speed, steering = self.avoidance.compute(pillar, world)
             self._update_avoid_phase(pillar)
             return speed, steering
@@ -163,6 +173,7 @@ class StateMachine:
                 self.state = RobotState.AVOID_PILLAR
                 self._avoiding_pillar = world.blocking_pillar.color
                 self._avoid_phase = 0
+                self._avoid_frames = 0
                 logger.info(f"Transition: WALL_FOLLOW -> AVOID_PILLAR ({self._avoiding_pillar})")
 
             # Priority 2: Corner detected
@@ -178,11 +189,15 @@ class StateMachine:
                 logger.info("Transition: WALL_FOLLOW -> PARKING")
 
         elif self.state == RobotState.AVOID_PILLAR:
+            self._avoid_frames += 1
+            # Stay in avoidance for minimum frames to actually complete the maneuver
+            if self._avoid_frames < self._min_avoid_frames:
+                return
             # Return to wall follow when pillar cleared
             if not world.blocking_pillar or self._avoid_phase >= 2:
                 self.state = RobotState.WALL_FOLLOW
                 self._avoiding_pillar = None
-                logger.info("Transition: AVOID_PILLAR -> WALL_FOLLOW")
+                logger.info(f"Transition: AVOID_PILLAR -> WALL_FOLLOW (after {self._avoid_frames} frames)")
 
         elif self.state == RobotState.CORNER:
             # Return to wall follow when corner cleared
