@@ -47,7 +47,7 @@ class Controller:
         # Sensors
         self.lidar = Lidar(params=self.params)
         self.camera = Camera(params=self.params)
-        self.motor = Motor()
+        self.motor = Motor(params=self.params)
 
         # Perception
         self.fusion: Optional[SensorFusion] = None

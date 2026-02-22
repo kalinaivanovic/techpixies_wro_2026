@@ -35,9 +35,10 @@ class Motor:
             E:<error_code>\\n
     """
 
-    def __init__(self, port: str = ESP32_PORT, baudrate: int = ESP32_BAUDRATE):
+    def __init__(self, port: str = ESP32_PORT, baudrate: int = ESP32_BAUDRATE, params=None):
         self.port = port
         self.baudrate = baudrate
+        self.params = params
 
         self._serial: Optional[serial.Serial] = None
         self._speed = 0
@@ -229,7 +230,10 @@ class Motor:
             logger.warning("Not connected to ESP32")
             return
 
-        command = f"C:{self._speed},{self._steering}\n"
+        # Servo is wired inverted: 0=right, 180=left. Flip to match
+        # convention where low values=left, high values=right.
+        hw_steering = 180 - self._steering
+        command = f"C:{self._speed},{hw_steering}\n"
         self._serial.write(command.encode())
         logger.debug(f"Sent: {command.strip()}")
 

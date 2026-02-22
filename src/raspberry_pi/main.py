@@ -69,7 +69,7 @@ def main():
                     self.lidar = Lidar(params=self.params)
                 if use_motor:
                     from sensors.motor import Motor
-                    self.motor = Motor()
+                    self.motor = Motor(params=self.params)
                     self.motor.connect()
 
                 self.visualizer = WorldStateVisualizer()

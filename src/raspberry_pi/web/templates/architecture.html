@@ -1281,8 +1281,8 @@
 
         function mcForward()  { mcDrive(parseInt(mcSpeedSlider.value), MC_STEER_CENTER); }
         function mcBackward() { mcDrive(-parseInt(mcSpeedSlider.value), MC_STEER_CENTER); }
-        function mcLeft()     { mcDrive(0, MC_STEER_RIGHT); }
-        function mcRight()    { mcDrive(0, MC_STEER_LEFT); }
+        function mcLeft()     { mcDrive(0, MC_STEER_LEFT); }
+        function mcRight()    { mcDrive(0, MC_STEER_RIGHT); }
         function mcRelease()  { mcDrive(0, MC_STEER_CENTER); }
 
         // Bind direction buttons — use global mouseup to avoid mouseleave issues
