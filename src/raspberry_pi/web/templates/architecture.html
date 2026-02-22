@@ -380,6 +380,30 @@
                             background:#6c5ce7;color:#fff;font-size:0.8rem;cursor:pointer;
                         ">Save</button>
                     </div>
+                    <!-- Avoidance steering control -->
+                    <div class="box" style="cursor:pointer;border:2px solid #e0e0e0" onclick="toggleAvoidControl()">
+                        <div class="box-label">Avoid Steer</div>
+                        <div class="box-value" id="avoid-steer-display" style="font-size:1.1rem">45 / 80</div>
+                        <div style="font-size:0.65rem;color:#aaa;margin-top:4px">min / max &middot; click to edit</div>
+                    </div>
+                    <div id="avoid-control-panel" style="display:none;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:14px">
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Min Turn: <strong id="avoid-min-val">45</strong>&deg;</label>
+                            <input type="range" id="avoid-min-slider" min="10" max="90" value="45"
+                                style="width:100%;margin-top:4px"
+                                oninput="onAvoidSlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Max Turn: <strong id="avoid-max-val">80</strong>&deg;</label>
+                            <input type="range" id="avoid-max-slider" min="10" max="90" value="80"
+                                style="width:100%;margin-top:4px"
+                                oninput="onAvoidSlider()">
+                        </div>
+                        <button onclick="saveAvoidParams()" style="
+                            width:100%;padding:6px;border:none;border-radius:6px;
+                            background:#6c5ce7;color:#fff;font-size:0.8rem;cursor:pointer;
+                        ">Save</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -952,7 +976,59 @@
                 document.getElementById('base-speed-display').textContent =
                     data.auto_normal_speed + ' / ' + data.auto_slow_speed;
             }
+            if (data.avoid_steer_min !== undefined && data.avoid_steer_max !== undefined) {
+                document.getElementById('avoid-steer-display').textContent =
+                    data.avoid_steer_min + ' / ' + data.avoid_steer_max;
+            }
         }).catch(() => {});
+
+        // ── Avoidance steering control ───────────────────────────
+        function toggleAvoidControl() {
+            const panel = document.getElementById('avoid-control-panel');
+            if (panel.style.display === 'none') {
+                fetch('/api/params').then(r => r.json()).then(data => {
+                    if (data.avoid_steer_min !== undefined) {
+                        document.getElementById('avoid-min-slider').value = data.avoid_steer_min;
+                        document.getElementById('avoid-min-val').textContent = data.avoid_steer_min;
+                    }
+                    if (data.avoid_steer_max !== undefined) {
+                        document.getElementById('avoid-max-slider').value = data.avoid_steer_max;
+                        document.getElementById('avoid-max-val').textContent = data.avoid_steer_max;
+                    }
+                }).catch(() => {});
+                panel.style.display = '';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function onAvoidSlider() {
+            const min = parseInt(document.getElementById('avoid-min-slider').value);
+            const max = parseInt(document.getElementById('avoid-max-slider').value);
+            document.getElementById('avoid-min-val').textContent = min;
+            document.getElementById('avoid-max-val').textContent = max;
+            document.getElementById('avoid-steer-display').textContent = min + ' / ' + max;
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({avoid_steer_min: min, avoid_steer_max: max})
+            }).catch(() => {});
+        }
+
+        function saveAvoidParams() {
+            const min = parseInt(document.getElementById('avoid-min-slider').value);
+            const max = parseInt(document.getElementById('avoid-max-slider').value);
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({avoid_steer_min: min, avoid_steer_max: max, _save: true})
+            }).then(() => {
+                const btn = event.target;
+                btn.textContent = 'Saved!';
+                btn.style.background = '#00b894';
+                setTimeout(() => { btn.textContent = 'Save'; btn.style.background = '#6c5ce7'; }, 1500);
+            }).catch(() => {});
+        }
 
         // ── Pi system info (only shown on Raspberry Pi) ───────────
         function pollSystem() {

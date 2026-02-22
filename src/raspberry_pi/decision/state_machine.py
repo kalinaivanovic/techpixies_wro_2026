@@ -126,10 +126,12 @@ class StateMachine:
         if self.state == RobotState.DONE:
             return 0, STEERING_CENTER
 
-        # Sync strategy speeds from runtime params
+        # Sync strategy values from runtime params
         if self.params:
             self.wall_follow.normal_speed = self.params.auto_normal_speed
             self.avoidance.slow_speed = self.params.auto_slow_speed
+            self.avoidance.min_steer_offset = self.params.avoid_steer_min
+            self.avoidance.max_steer_offset = self.params.avoid_steer_max
             self.corner.slow_speed = self.params.auto_slow_speed
 
         # Update direction from track map

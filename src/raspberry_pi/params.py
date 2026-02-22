@@ -69,6 +69,10 @@ class Parameters:
     auto_normal_speed: int = 60  # Speed for wall following (0-100)
     auto_slow_speed: int = 35  # Speed for avoidance/corners (0-100)
 
+    # Avoidance steering (degrees offset from center 90)
+    avoid_steer_min: int = 45  # Minimum turn when pillar detected
+    avoid_steer_max: int = 80  # Maximum turn when pillar very close
+
     # LIDAR filtering
     lidar_min_distance: int = 60  # mm, ignore readings closer (robot body)
     lidar_min_quality: int = 10  # 0-47, minimum quality to accept
