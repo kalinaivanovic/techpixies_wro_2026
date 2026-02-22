@@ -1279,10 +1279,11 @@
             });
         }
 
+        // Combined drive: left/right include forward speed from slider
         function mcForward()  { mcDrive(parseInt(mcSpeedSlider.value), MC_STEER_CENTER); }
         function mcBackward() { mcDrive(-parseInt(mcSpeedSlider.value), MC_STEER_CENTER); }
-        function mcLeft()     { mcDrive(0, MC_STEER_LEFT); }
-        function mcRight()    { mcDrive(0, MC_STEER_RIGHT); }
+        function mcLeft()     { mcDrive(parseInt(mcSpeedSlider.value), MC_STEER_LEFT); }
+        function mcRight()    { mcDrive(parseInt(mcSpeedSlider.value), MC_STEER_RIGHT); }
         function mcRelease()  { mcDrive(0, MC_STEER_CENTER); }
 
         // Bind direction buttons — use global mouseup to avoid mouseleave issues
@@ -1321,8 +1322,20 @@
             resumeBackgroundStreams();
         }
 
-        // ── Keyboard shortcuts ──────────────────────────────────
+        // ── Keyboard shortcuts (combines simultaneous keys) ─────
         const keysDown = {};
+
+        function mcSendFromKeys() {
+            const spd = parseInt(mcSpeedSlider.value);
+            let speed = 0, steer = MC_STEER_CENTER;
+            if (keysDown['ArrowUp'])    speed = spd;
+            if (keysDown['ArrowDown'])  speed = -spd;
+            if (keysDown['ArrowLeft'])  steer = MC_STEER_LEFT;
+            if (keysDown['ArrowRight']) steer = MC_STEER_RIGHT;
+            // If only left/right with no up/down, still drive forward
+            if (speed === 0 && steer !== MC_STEER_CENTER) speed = spd;
+            mcDrive(speed, steer);
+        }
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -1336,24 +1349,28 @@
 
             // Motor controls only when manual overlay is open
             if (document.getElementById('manual-overlay').style.display === 'none') return;
-            if (keysDown[e.key]) return; // Prevent key repeat
-            keysDown[e.key] = true;
 
-            switch (e.key) {
-                case 'ArrowUp':    mcForward();  e.preventDefault(); break;
-                case 'ArrowDown':  mcBackward(); e.preventDefault(); break;
-                case 'ArrowLeft':  mcLeft();     e.preventDefault(); break;
-                case 'ArrowRight': mcRight();    e.preventDefault(); break;
-                case ' ':          mcStop();     e.preventDefault(); break;
+            if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+                keysDown[e.key] = true;
+                mcSendFromKeys();
+            } else if (e.key === ' ') {
+                e.preventDefault();
+                mcStop();
             }
         });
 
         document.addEventListener('keyup', (e) => {
-            keysDown[e.key] = false;
             if (document.getElementById('manual-overlay').style.display === 'none') return;
 
             if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
-                mcRelease();
+                keysDown[e.key] = false;
+                // If any arrow still held, send combined; otherwise release
+                if (keysDown['ArrowUp'] || keysDown['ArrowDown'] || keysDown['ArrowLeft'] || keysDown['ArrowRight']) {
+                    mcSendFromKeys();
+                } else {
+                    mcRelease();
+                }
             }
         });
     </script>
