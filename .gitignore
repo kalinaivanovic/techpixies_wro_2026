@@ -206,3 +206,5 @@ dkms.conf
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+#techpixies conf files
+params.json

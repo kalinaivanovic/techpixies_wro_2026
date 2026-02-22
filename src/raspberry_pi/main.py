@@ -1,27 +1,40 @@
 #!/usr/bin/env python3
 """
-Stage 3: Camera with color detection in browser.
+Stage 3: Live parameter tuning in the browser.
+
+What's new:
+  - Parameters dataclass holds all HSV color ranges
+  - Camera reads from params every frame (no hardcoded constants)
+  - Web page has sliders to adjust HSV values
+  - Changes take effect IMMEDIATELY (no restart needed!)
 
 Run:
     python main.py
 
 Then open http://localhost:8080 in your browser.
-You will see the camera feed with bounding boxes around detected colors,
-plus red and green mask views.
+Move the sliders and watch the camera stream change in real time.
 """
 
 import asyncio
 
 from sensors.camera import Camera
+from params import Parameters
 from server import run_server
 
 
 def main():
-    camera = Camera()
+    # Load parameters (from params.json if it exists, else defaults)
+    params = Parameters.load()
+    print(f"Parameters loaded: min_area={params.min_area}")
+
+    # Camera gets a REFERENCE to the same params object
+    # When the web server changes params, the camera sees it next frame!
+    camera = Camera(params)
     camera.start()
 
     async def run():
-        runner = await run_server(camera)
+        # Server also gets the same params object
+        runner = await run_server(camera, params)
         print("Press Ctrl+C to stop")
         try:
             while True:

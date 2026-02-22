@@ -3,79 +3,402 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Camera Detection</title>
+    <title>Stage 3 - Live Parameter Tuning</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Segoe UI', system-ui, sans-serif;
-            background: #f5f5f5;
-            color: #333;
+            background: #1a1a2e;
+            color: #eee;
             min-height: 100vh;
-            padding: 30px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            padding: 20px;
         }
         h1 {
-            margin-bottom: 20px;
-            color: #444;
+            text-align: center;
+            margin-bottom: 6px;
             font-weight: 400;
-            font-size: 1.8rem;
+            font-size: 1.6rem;
+            color: #e0e0e0;
         }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+        }
+
+        /* ── Layout ─────────────────────────────────── */
+        .content {
+            display: flex;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .streams {
+            flex: 1;
+            min-width: 0;
+        }
+        .controls {
+            width: 380px;
+            flex-shrink: 0;
+        }
+
+        /* ── Streams ────────────────────────────────── */
         .label {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             text-transform: uppercase;
             color: #888;
             letter-spacing: 1px;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
         .main-feed {
-            max-width: 800px;
-            width: 100%;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
         .main-feed img {
             width: 100%;
             border-radius: 8px;
-            background: #e8e8e8;
-            border: 1px solid #ddd;
+            background: #222;
+            border: 1px solid #333;
         }
         .masks {
             display: flex;
-            gap: 16px;
-            max-width: 800px;
-            width: 100%;
+            gap: 10px;
         }
         .mask-box {
             flex: 1;
         }
         .mask-box img {
             width: 100%;
-            border-radius: 8px;
-            background: #e8e8e8;
-            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: #222;
+            border: 1px solid #333;
         }
-        .red { color: #d63031; }
-        .green { color: #00b894; }
+        .red { color: #ff6b6b; }
+        .green { color: #51cf66; }
+        .magenta { color: #e599f7; }
+
+        /* ── Controls Panel ─────────────────────────── */
+        .panel {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid #1a1a40;
+        }
+        .panel-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333;
+        }
+        .panel-title.red-title { color: #ff6b6b; }
+        .panel-title.green-title { color: #51cf66; }
+        .panel-title.magenta-title { color: #e599f7; }
+        .panel-title.general-title { color: #74b9ff; }
+
+        /* ── Slider Rows ────────────────────────────── */
+        .slider-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 8px;
+        }
+        .slider-label {
+            width: 55px;
+            font-size: 0.75rem;
+            color: #aaa;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .slider-row input[type="range"] {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #333;
+            border-radius: 3px;
+            outline: none;
+        }
+        .slider-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #74b9ff;
+            cursor: pointer;
+        }
+        .slider-value {
+            width: 32px;
+            font-size: 0.75rem;
+            color: #aaa;
+            text-align: left;
+            flex-shrink: 0;
+            font-family: monospace;
+        }
+
+        /* ── Buttons ────────────────────────────────── */
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-save {
+            background: #00b894;
+            color: white;
+        }
+        .btn-reset {
+            background: #636e72;
+            color: white;
+        }
+        .status {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 8px;
+            min-height: 18px;
+        }
+
+        /* ── Mobile ─────────────────────────────────── */
+        @media (max-width: 900px) {
+            .content { flex-direction: column; }
+            .controls { width: 100%; }
+        }
     </style>
 </head>
 <body>
-    <h1>Camera Detection</h1>
+    <h1>Stage 3 &mdash; Live Parameter Tuning</h1>
+    <p class="subtitle">Move a slider &rarr; camera updates instantly. No restart needed!</p>
 
-    <div class="main-feed">
-        <div class="label">Camera Feed (with detections)</div>
-        <img src="/stream/camera" alt="Camera Stream" />
+    <div class="content">
+        <!-- Left: Camera streams -->
+        <div class="streams">
+            <div class="main-feed">
+                <div class="label">Camera Feed (with bounding boxes)</div>
+                <img src="/stream/camera" alt="Camera" />
+            </div>
+            <div class="masks">
+                <div class="mask-box">
+                    <div class="label red">Red Mask</div>
+                    <img src="/stream/camera/red" alt="Red" />
+                </div>
+                <div class="mask-box">
+                    <div class="label green">Green Mask</div>
+                    <img src="/stream/camera/green" alt="Green" />
+                </div>
+                <div class="mask-box">
+                    <div class="label magenta">Magenta Mask</div>
+                    <img src="/stream/camera/magenta" alt="Magenta" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: HSV controls -->
+        <div class="controls">
+
+            <!-- Red Range 1 -->
+            <div class="panel">
+                <div class="panel-title red-title">Red (Low Hue: 0-10)</div>
+                <div class="slider-row">
+                    <span class="slider-label">H Min</span>
+                    <input type="range" min="0" max="180" data-param="red_h_min">
+                    <span class="slider-value"></span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">H Max</span>
+                    <input type="range" min="0" max="180" data-param="red_h_max">
+                    <span class="slider-value"></span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">S Min</span>
+                    <input type="range" min="0" max="255" data-param="red_s_min">
+                    <span class="slider-value"></span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">V Min</span>
+                    <input type="range" min="0" max="255" data-param="red_v_min">
+                    <span class="slider-value"></span>
+                </div>
+            </div>
+
+            <!-- Red Range 2 -->
+            <div class="panel">
+                <div class="panel-title red-title">Red (High Hue: 160-180)</div>
+                <div class="slider-row">
+                    <span class="slider-label">H Min</span>
+                    <input type="range" min="0" max="180" data-param="red_h_min2">
+                    <span class="slider-value"></span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">H Max</span>
+                    <input type="range" min="0" max="180" data-param="red_h_max2">
+                    <span class="slider-value"></span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">S Min</span>
+                    <input type="range" min="0" max="255" data-param="red_s_min2">
+                    <span class="slider-value"></span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">V Min</span>
+                    <input type="range" min="0" max="255" data-param="red_v_min2">
+                    <span class="slider-value"></span>
+                </div>
+            </div>
+
+            <!-- Green -->
+            <div class="panel">
+                <div class="panel-title green-title">Green</div>
+                <div class="slider-row">
+                    <span class="slider-label">H Min</span>
+                    <input type="range" min="0" max="180" data-param="green_h_min">
+                    <span class="slider-value"></span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">H Max</span>
+                    <input type="range" min="0" max="180" data-param="green_h_max">
+                    <span class="slider-value"></span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">S Min</span>
+                    <input type="range" min="0" max="255" data-param="green_s_min">
+                    <span class="slider-value"></span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">V Min</span>
+                    <input type="range" min="0" max="255" data-param="green_v_min">
+                    <span class="slider-value"></span>
+                </div>
+            </div>
+
+            <!-- Magenta -->
+            <div class="panel">
+                <div class="panel-title magenta-title">Magenta</div>
+                <div class="slider-row">
+                    <span class="slider-label">H Min</span>
+                    <input type="range" min="0" max="180" data-param="magenta_h_min">
+                    <span class="slider-value"></span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">H Max</span>
+                    <input type="range" min="0" max="180" data-param="magenta_h_max">
+                    <span class="slider-value"></span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">S Min</span>
+                    <input type="range" min="0" max="255" data-param="magenta_s_min">
+                    <span class="slider-value"></span>
+                </div>
+                <div class="slider-row">
+                    <span class="slider-label">V Min</span>
+                    <input type="range" min="0" max="255" data-param="magenta_v_min">
+                    <span class="slider-value"></span>
+                </div>
+            </div>
+
+            <!-- General -->
+            <div class="panel">
+                <div class="panel-title general-title">Detection</div>
+                <div class="slider-row">
+                    <span class="slider-label">Area</span>
+                    <input type="range" min="50" max="5000" step="50" data-param="min_area">
+                    <span class="slider-value"></span>
+                </div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="btn-row">
+                <button class="btn btn-save" onclick="saveParams()">Save to Disk</button>
+                <button class="btn btn-reset" onclick="loadParams()">Reload</button>
+            </div>
+            <div class="status" id="status"></div>
+        </div>
     </div>
 
-    <div class="masks">
-        <div class="mask-box">
-            <div class="label red">Red Mask</div>
-            <img src="/stream/camera/red" alt="Red Mask" />
-        </div>
-        <div class="mask-box">
-            <div class="label green">Green Mask</div>
-            <img src="/stream/camera/green" alt="Green Mask" />
-        </div>
-    </div>
+    <script>
+        // ── How this works ─────────────────────────────────────
+        //
+        // 1. On page load, fetch GET /api/params → JSON of all params
+        // 2. Populate every slider whose data-param matches a JSON key
+        // 3. When user moves a slider, POST the single changed value
+        // 4. Server calls params.update() → camera sees it next frame
+        // 5. MJPEG stream shows the effect instantly!
+        //
+        // No page reload. No restart. Just move a slider and watch.
+
+        const sliders = document.querySelectorAll('input[type="range"]');
+
+        // Populate sliders from current params
+        async function loadParams() {
+            const res = await fetch('/api/params');
+            const params = await res.json();
+
+            sliders.forEach(slider => {
+                const key = slider.dataset.param;
+                if (key in params) {
+                    slider.value = params[key];
+                    slider.nextElementSibling.textContent = params[key];
+                }
+            });
+            showStatus('Parameters loaded');
+        }
+
+        // Send one param change to the server
+        async function sendParam(key, value) {
+            const body = {};
+            body[key] = parseInt(value);
+            await fetch('/api/params', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+        }
+
+        // Save all params to disk (params.json)
+        async function saveParams() {
+            await fetch('/api/params', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ _save: true }),
+            });
+            showStatus('Saved to params.json!');
+        }
+
+        // Show temporary status message
+        function showStatus(msg) {
+            const el = document.getElementById('status');
+            el.textContent = msg;
+            setTimeout(() => { el.textContent = ''; }, 2000);
+        }
+
+        // Attach event listeners to all sliders
+        sliders.forEach(slider => {
+            // Update value display while dragging
+            slider.addEventListener('input', () => {
+                slider.nextElementSibling.textContent = slider.value;
+            });
+
+            // Send to server when user releases the slider
+            // (We use 'input' for instant feedback, but you could use 'change'
+            // to only send on release — tradeoff: smoothness vs fewer requests)
+            slider.addEventListener('input', () => {
+                sendParam(slider.dataset.param, slider.value);
+            });
+        });
+
+        // Load params on page load
+        loadParams();
+    </script>
 </body>
 </html>

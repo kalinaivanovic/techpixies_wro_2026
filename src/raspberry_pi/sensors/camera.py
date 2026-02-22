@@ -1,12 +1,24 @@
 """
 Camera - capture frames and detect colored objects.
 
-Stage 3: Full detection with bounding boxes and color masks.
+Stage 3: Now reads HSV ranges from Parameters instead of hardcoded constants.
 
-Detects:
-- Red blobs (pillars to pass on RIGHT)
-- Green blobs (pillars to pass on LEFT)
-- Magenta blobs (parking markers)
+What changed from Stage 2:
+  - Constructor takes a `params` object
+  - _range() method builds HSV arrays from params (not constants)
+  - _detect_blobs() reads min_area from params
+  - If you change params at runtime, the NEXT frame uses new values!
+
+This is possible because Python reads self.params.red_h_min each frame.
+There is no caching. So the web server can update params between frames,
+and the camera thread sees the new values immediately.
+
+Key insight: the Camera doesn't OWN the parameters. It just holds a
+REFERENCE to the same object that the web server modifies.
+
+    params = Parameters()
+    camera = Camera(params)   # camera.params IS the same object
+    params.red_h_min = 5      # camera sees the change next frame
 """
 
 import threading
@@ -16,34 +28,13 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
+from params import Parameters
+
 # Camera settings
 CAMERA_INDEX = 0
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
 CAMERA_FOV = 120  # degrees (wide-angle lens)
-
-# Minimum blob area in pixels (filter out noise)
-MIN_AREA = 300
-
-# HSV color ranges for detection
-# (OpenCV uses H: 0-180, S: 0-255, V: 0-255)
-#
-# Hue scale:
-# Red     Orange    Yellow    Green     Cyan      Blue      Magenta   Red
-#  0        15        30        60        90       120        150      180
-#
-# Red wraps around both ends (0-10 AND 160-180), so it needs two ranges.
-
-RED_LOWER1 = np.array([0, 100, 100])
-RED_UPPER1 = np.array([10, 255, 255])
-RED_LOWER2 = np.array([160, 100, 100])
-RED_UPPER2 = np.array([180, 255, 255])
-
-GREEN_LOWER = np.array([40, 50, 50])
-GREEN_UPPER = np.array([80, 255, 255])
-
-MAGENTA_LOWER = np.array([140, 100, 100])
-MAGENTA_UPPER = np.array([160, 255, 255])
 
 
 @dataclass
@@ -61,29 +52,35 @@ class ColorBlob:
 
 class Camera:
     """
-    Captures frames and detects colored objects in background thread.
+    Captures frames and detects colored objects.
+
+    Reads all detection settings from a shared Parameters object,
+    so HSV ranges can be tuned at runtime without restarting.
 
     Usage:
-        camera = Camera()
+        params = Parameters.load()
+        camera = Camera(params)
         camera.start()
 
         blobs = camera.get_blobs()
-        for blob in blobs:
-            print(f"{blob.color} at {blob.angle:.0f} degrees")
+        jpeg = camera.get_jpeg_frame()
 
-        jpeg = camera.get_jpeg_frame()       # Frame with bounding boxes
-        mask = camera.get_jpeg_mask("red")   # Red color mask
+        # Change a parameter at runtime:
+        params.red_h_min = 5
+        # Next frame will use the new value!
 
         camera.stop()
     """
 
-    def __init__(self):
+    def __init__(self, params: Parameters):
+        # Store REFERENCE to shared params (not a copy!)
+        self.params = params
+
         self._cap: cv2.VideoCapture | None = None
         self._running = False
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
 
-        # Latest frame and detections
         self._frame: np.ndarray | None = None
         self._blobs: list[ColorBlob] = []
 
@@ -114,119 +111,105 @@ class Camera:
     def stop(self):
         """Stop camera capture."""
         self._running = False
-
         if self._thread:
             self._thread.join(timeout=2.0)
             self._thread = None
-
         if self._cap:
             self._cap.release()
             self._cap = None
-
         print("Camera stopped")
-
-    def get_frame(self) -> np.ndarray | None:
-        """Get latest frame as numpy array (BGR format)."""
-        with self._lock:
-            if self._frame is not None:
-                return self._frame.copy()
-            return None
 
     def get_blobs(self) -> list[ColorBlob]:
         """Get all detected color blobs."""
         with self._lock:
             return self._blobs.copy()
 
-    def get_red_blobs(self) -> list[ColorBlob]:
-        """Get red blobs (pillars to pass on RIGHT)."""
-        return [b for b in self.get_blobs() if b.color == "red"]
+    def get_frame(self) -> np.ndarray | None:
+        """Get latest frame (BGR format)."""
+        with self._lock:
+            if self._frame is not None:
+                return self._frame.copy()
+            return None
 
-    def get_green_blobs(self) -> list[ColorBlob]:
-        """Get green blobs (pillars to pass on LEFT)."""
-        return [b for b in self.get_blobs() if b.color == "green"]
-
-    def get_jpeg_frame(self, draw_boxes: bool = True, quality: int = 80) -> bytes | None:
-        """Get frame as JPEG, optionally with bounding boxes drawn.
-
-        Args:
-            draw_boxes: If True, draw rectangles around detected blobs.
-            quality: JPEG compression quality (0-100).
-        """
+    def get_jpeg_frame(self, quality: int = 80) -> bytes | None:
+        """Get frame with bounding boxes as JPEG bytes."""
         with self._lock:
             if self._frame is None:
                 return None
             frame = self._frame.copy()
             blobs = self._blobs.copy()
 
-        if draw_boxes:
-            # BGR colors for drawing (not HSV!)
-            colors = {
-                "red": (0, 0, 255),       # Red in BGR
-                "green": (0, 255, 0),     # Green in BGR
-                "magenta": (255, 0, 255), # Magenta in BGR
-            }
-            for blob in blobs:
-                bgr = colors.get(blob.color, (255, 255, 255))
-
-                # Calculate top-left corner from center
-                x = blob.x - blob.width // 2
-                y = blob.y - blob.height // 2
-
-                # Draw bounding box
-                cv2.rectangle(frame, (x, y), (x + blob.width, y + blob.height), bgr, 2)
-
-                # Draw label
-                cv2.putText(
-                    frame,
-                    f"{blob.color} {blob.angle:.0f}deg",
-                    (x, y - 8),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    bgr,
-                    1,
-                )
+        colors = {
+            "red": (0, 0, 255),
+            "green": (0, 255, 0),
+            "magenta": (255, 0, 255),
+        }
+        for blob in blobs:
+            bgr = colors.get(blob.color, (255, 255, 255))
+            x = blob.x - blob.width // 2
+            y = blob.y - blob.height // 2
+            cv2.rectangle(frame, (x, y), (x + blob.width, y + blob.height), bgr, 2)
+            cv2.putText(
+                frame, f"{blob.color} {blob.angle:.0f}deg",
+                (x, y - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, bgr, 1,
+            )
 
         ret, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, quality])
-        if not ret:
-            return None
-        return jpeg.tobytes()
+        return jpeg.tobytes() if ret else None
 
     def get_jpeg_mask(self, color: str, quality: int = 80) -> bytes | None:
-        """Get binary color mask as JPEG bytes.
-
-        Shows white pixels where the color is detected, black everywhere else.
-
-        Args:
-            color: "red", "green", or "magenta"
-            quality: JPEG compression quality (0-100)
-        """
+        """Get binary color mask as JPEG bytes."""
         with self._lock:
             if self._frame is None:
                 return None
             frame = self._frame.copy()
 
-        # Convert BGR -> HSV
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-        # Create binary mask for the requested color
         if color == "red":
-            # Red wraps around hue, need two ranges combined with OR
-            mask1 = cv2.inRange(hsv, RED_LOWER1, RED_UPPER1)
-            mask2 = cv2.inRange(hsv, RED_LOWER2, RED_UPPER2)
-            mask = cv2.bitwise_or(mask1, mask2)
+            lower1, upper1 = self._range("red1")
+            lower2, upper2 = self._range("red2")
+            mask = cv2.bitwise_or(
+                cv2.inRange(hsv, lower1, upper1),
+                cv2.inRange(hsv, lower2, upper2),
+            )
         elif color == "green":
-            mask = cv2.inRange(hsv, GREEN_LOWER, GREEN_UPPER)
+            lower, upper = self._range("green")
+            mask = cv2.inRange(hsv, lower, upper)
         elif color == "magenta":
-            mask = cv2.inRange(hsv, MAGENTA_LOWER, MAGENTA_UPPER)
+            lower, upper = self._range("magenta")
+            mask = cv2.inRange(hsv, lower, upper)
         else:
             return None
 
         ret, jpeg = cv2.imencode(".jpg", mask, [cv2.IMWRITE_JPEG_QUALITY, quality])
-        if not ret:
-            return None
-        return jpeg.tobytes()
+        return jpeg.tobytes() if ret else None
 
-    # ── Private methods ────────────────────────────────────────────
+    # ── Private methods ──────────────────────────────────────────
+
+    def _range(self, color: str):
+        """Build (lower, upper) HSV numpy arrays from params.
+
+        THIS is the key difference from Stage 2.
+        Stage 2: used hardcoded constants like RED_LOWER1 = np.array([0, 100, 100])
+        Stage 3: reads from self.params every time this is called.
+
+        Since _detect_blobs() calls _range() every frame, any changes
+        to params take effect on the very next frame.
+        """
+        p = self.params
+        if color == "red1":
+            return (np.array([p.red_h_min, p.red_s_min, p.red_v_min]),
+                    np.array([p.red_h_max, p.red_s_max, p.red_v_max]))
+        if color == "red2":
+            return (np.array([p.red_h_min2, p.red_s_min2, p.red_v_min2]),
+                    np.array([p.red_h_max2, p.red_s_max2, p.red_v_max2]))
+        if color == "green":
+            return (np.array([p.green_h_min, p.green_s_min, p.green_v_min]),
+                    np.array([p.green_h_max, p.green_s_max, p.green_v_max]))
+        # magenta
+        return (np.array([p.magenta_h_min, p.magenta_s_min, p.magenta_v_min]),
+                np.array([p.magenta_h_max, p.magenta_s_max, p.magenta_v_max]))
 
     def _capture_loop(self):
         """Background thread: grab frames and run detection."""
@@ -234,83 +217,59 @@ class Camera:
             ret, frame = self._cap.read()
             if not ret:
                 continue
-
-            # Run color detection on this frame
             blobs = self._detect_blobs(frame)
-
-            # Store results safely
             with self._lock:
                 self._frame = frame
                 self._blobs = blobs
 
     def _detect_blobs(self, frame: np.ndarray) -> list[ColorBlob]:
-        """Detect all colored blobs in a frame."""
-        # Convert BGR (camera format) to HSV (better for color detection)
+        """Detect colored blobs using current params."""
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         blobs = []
 
-        # Detect red (needs two ranges because red wraps around hue 0/180)
-        mask_red1 = cv2.inRange(hsv, RED_LOWER1, RED_UPPER1)
-        mask_red2 = cv2.inRange(hsv, RED_LOWER2, RED_UPPER2)
-        mask_red = cv2.bitwise_or(mask_red1, mask_red2)
-        blobs.extend(self._find_blobs(mask_red, "red"))
+        # Read min_area from params (not a constant!)
+        min_area = self.params.min_area
 
-        # Detect green (single range, sits in middle of hue spectrum)
-        mask_green = cv2.inRange(hsv, GREEN_LOWER, GREEN_UPPER)
-        blobs.extend(self._find_blobs(mask_green, "green"))
+        # Red (two ranges)
+        rl1, ru1 = self._range("red1")
+        rl2, ru2 = self._range("red2")
+        mask_red = cv2.bitwise_or(
+            cv2.inRange(hsv, rl1, ru1),
+            cv2.inRange(hsv, rl2, ru2),
+        )
+        blobs.extend(self._find_blobs(mask_red, "red", min_area))
 
-        # Detect magenta (single range)
-        mask_magenta = cv2.inRange(hsv, MAGENTA_LOWER, MAGENTA_UPPER)
-        blobs.extend(self._find_blobs(mask_magenta, "magenta"))
+        # Green
+        gl, gu = self._range("green")
+        blobs.extend(self._find_blobs(cv2.inRange(hsv, gl, gu), "green", min_area))
+
+        # Magenta
+        ml, mu = self._range("magenta")
+        blobs.extend(self._find_blobs(cv2.inRange(hsv, ml, mu), "magenta", min_area))
 
         return blobs
 
-    def _find_blobs(self, mask: np.ndarray, color: str) -> list[ColorBlob]:
-        """Find blobs in a binary mask (white = detected, black = not)."""
+    def _find_blobs(self, mask: np.ndarray, color: str, min_area: int) -> list[ColorBlob]:
+        """Find blobs in a binary mask."""
         blobs = []
-
-        # Clean up the mask: erode removes tiny noise, dilate fills small gaps
         kernel = np.ones((5, 5), np.uint8)
         mask = cv2.erode(mask, kernel, iterations=1)
         mask = cv2.dilate(mask, kernel, iterations=2)
-
-        # Find contours (outlines of white regions)
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         for contour in contours:
             area = cv2.contourArea(contour)
-            if area < MIN_AREA:
-                continue  # Too small, probably noise
-
-            # Get bounding rectangle
+            if area < min_area:
+                continue
             x, y, w, h = cv2.boundingRect(contour)
             center_x = x + w // 2
             center_y = y + h // 2
-
-            # Convert pixel X position to angle from center
             angle = self._pixel_to_angle(center_x)
-
-            blobs.append(
-                ColorBlob(
-                    color=color,
-                    angle=angle,
-                    x=center_x,
-                    y=center_y,
-                    width=w,
-                    height=h,
-                    area=int(area),
-                )
-            )
+            blobs.append(ColorBlob(color, angle, center_x, center_y, w, h, int(area)))
 
         return blobs
 
     def _pixel_to_angle(self, pixel_x: int) -> float:
-        """Convert X pixel position to angle from camera center.
-
-        With 120 degree FOV and 640px width:
-        - Pixel 0   -> -60 degrees (far left)
-        - Pixel 320 ->   0 degrees (center)
-        - Pixel 640 -> +60 degrees (far right)
-        """
+        """Convert X pixel position to angle from center."""
         normalized = (pixel_x - CAMERA_WIDTH / 2) / (CAMERA_WIDTH / 2)
         return normalized * (CAMERA_FOV / 2)
