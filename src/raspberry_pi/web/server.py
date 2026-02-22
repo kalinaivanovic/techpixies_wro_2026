@@ -470,15 +470,28 @@ class WebServer:
                     capture_output=True, text=True, timeout=2,
                 )
                 if result.returncode == 0:
+                    # Lines like: "   EXT5V_V volt(24)=5.01830000V"
+                    #             " 3V7_WL_SW_A current(0)=0.09954486A"
+                    total_current = 0.0
                     for line in result.stdout.strip().splitlines():
-                        # Lines like "EXT5V_V=5.1234V" or "EXT5V_A=0.5678A"
-                        if "=" in line:
-                            key, val = line.strip().split("=", 1)
-                            try:
-                                numeric = float(val.rstrip("VA"))
-                                data[f"pmic_{key.lower()}"] = round(numeric, 3)
-                            except ValueError:
-                                pass
+                        if "=" not in line:
+                            continue
+                        parts = line.strip().split("=", 1)
+                        if len(parts) != 2:
+                            continue
+                        name_part = parts[0].strip()  # "EXT5V_V volt(24)"
+                        val_str = parts[1].strip()     # "5.01830000V"
+                        name = name_part.split()[0]     # "EXT5V_V"
+                        try:
+                            numeric = float(val_str.rstrip("VA"))
+                        except ValueError:
+                            continue
+                        if name == "EXT5V_V":
+                            data["pmic_ext5v"] = round(numeric, 2)
+                        if "current" in name_part:
+                            total_current += numeric
+                    if total_current > 0:
+                        data["pmic_total_current"] = round(total_current, 2)
             except Exception:
                 pass
 
