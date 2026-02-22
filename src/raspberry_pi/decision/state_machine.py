@@ -85,7 +85,13 @@ class StateMachine:
         self._avoiding_pillar: str | None = None  # Color being avoided
         self._avoid_phase = 0  # 0=approach, 1=passing, 2=returning
         self._avoid_frames = 0  # How many frames in AVOID_PILLAR
-        self._min_avoid_frames = 15  # Stay in avoidance at least this many frames (~0.3s at 50Hz)
+        self._min_avoid_frames = 25  # Stay in avoidance at least this many frames (~0.5s at 50Hz)
+
+        # Clearance: pillar must be this far to the side OR this far away to be "cleared"
+        # Robot is 200mm wide — at 300mm distance, half-width is arctan(100/300)=18°
+        # plus pillar half-width 25mm, plus margin. Need ~65° to be safe at close range.
+        self._clear_angle = 65.0  # degrees — must be well past 200mm robot body
+        self._clear_distance = 600.0  # mm — or far enough to not matter
 
     def start(self):
         """Start the race."""
@@ -197,11 +203,11 @@ class StateMachine:
             # Stay in avoidance for minimum frames to actually complete the maneuver
             if self._avoid_frames < self._min_avoid_frames:
                 return
-            # Return to wall follow when pillar cleared
-            if not world.blocking_pillar or self._avoid_phase >= 2:
+            # Return to wall follow when pillar actually cleared
+            if self._is_pillar_cleared(world):
+                logger.info(f"Transition: AVOID_PILLAR -> WALL_FOLLOW (after {self._avoid_frames} frames)")
                 self.state = RobotState.WALL_FOLLOW
                 self._avoiding_pillar = None
-                logger.info(f"Transition: AVOID_PILLAR -> WALL_FOLLOW (after {self._avoid_frames} frames)")
 
         elif self.state == RobotState.CORNER:
             # Pillar overrides corner (higher priority)
@@ -231,6 +237,34 @@ class StateMachine:
             if self.parking is not None and self.parking.is_complete():
                 self.state = RobotState.DONE
                 logger.info("Transition: PARKING -> DONE")
+
+    def _is_pillar_cleared(self, world: WorldState) -> bool:
+        """Check if the pillar we're avoiding is safely past the robot body.
+
+        The robot is 150mm wide. A pillar at 30° from center could still
+        be in the path of the robot's edge. We require the pillar to be:
+        - Gone from view entirely (for at least 2× min frames), OR
+        - Far enough to the side (>55° from center), OR
+        - Far enough away (>600mm)
+        """
+        # Find the pillar we're avoiding by color
+        our_pillar = None
+        for p in world.pillars:
+            if p.color == self._avoiding_pillar:
+                our_pillar = p
+                break
+
+        if our_pillar is None:
+            # Pillar not visible — only clear if we've been avoiding long enough
+            return self._avoid_frames > self._min_avoid_frames * 2
+
+        # Pillar still visible — is it safely past?
+        if our_pillar.distance > self._clear_distance:
+            return True  # Far enough away
+        if abs(our_pillar.angle) > self._clear_angle:
+            return True  # Well past the side of the robot
+
+        return False
 
     def _update_avoid_phase(self, pillar) -> None:
         """Track pillar avoidance progress."""

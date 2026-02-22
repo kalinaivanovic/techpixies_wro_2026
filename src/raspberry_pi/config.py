@@ -26,8 +26,8 @@ CAMERA_FOV = 120  # degrees
 # ROBOT GEOMETRY (mm)
 # =============================================================================
 
-ROBOT_LENGTH = 200
-ROBOT_WIDTH = 150
+ROBOT_LENGTH = 270
+ROBOT_WIDTH = 200
 WHEELBASE = 160  # Front to rear axle
 LIDAR_OFFSET_X = 50  # LIDAR distance from robot center (forward)
 
