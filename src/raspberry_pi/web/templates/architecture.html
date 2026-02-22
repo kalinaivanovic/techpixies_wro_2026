@@ -252,6 +252,8 @@
                     <div style="font-family:Consolas,monospace;font-size:0.85rem;line-height:1.6">
                         <div>Temp: <span id="pi-temp" style="font-weight:600">--</span></div>
                         <div>Power: <span id="pi-power" style="font-weight:600">--</span></div>
+                        <div id="pi-voltage-row" style="display:none">Voltage: <span id="pi-voltage" style="font-weight:600">--</span></div>
+                        <div id="pi-current-row" style="display:none">Current: <span id="pi-current" style="font-weight:600">--</span></div>
                     </div>
                 </div>
             </div>
@@ -1051,6 +1053,24 @@
                         el.textContent = 'OK';
                         el.style.color = '#00b894';
                     }
+                }
+
+                // PMIC voltage — find EXT5V_V or any *_v key
+                const vKey = Object.keys(data).find(k => k.startsWith('pmic_') && k.endsWith('_v'));
+                if (vKey) {
+                    const v = data[vKey];
+                    const el = document.getElementById('pi-voltage');
+                    document.getElementById('pi-voltage-row').style.display = '';
+                    el.textContent = v.toFixed(2) + 'V';
+                    el.style.color = v < 4.7 ? '#d63031' : v < 4.9 ? '#e17055' : '#00b894';
+                }
+
+                // PMIC current — find EXT5V_A or any *_a key
+                const aKey = Object.keys(data).find(k => k.startsWith('pmic_') && k.endsWith('_a'));
+                if (aKey) {
+                    const a = data[aKey];
+                    document.getElementById('pi-current-row').style.display = '';
+                    document.getElementById('pi-current').textContent = a.toFixed(2) + 'A';
                 }
             }).catch(() => {});
         }

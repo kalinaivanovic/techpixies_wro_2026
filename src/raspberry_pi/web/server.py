@@ -463,6 +463,25 @@ class WebServer:
             except Exception:
                 pass
 
+            # Pi 5 PMIC ADC — input voltage and current
+            try:
+                result = subprocess.run(
+                    ["vcgencmd", "pmic_read_adc"],
+                    capture_output=True, text=True, timeout=2,
+                )
+                if result.returncode == 0:
+                    for line in result.stdout.strip().splitlines():
+                        # Lines like "EXT5V_V=5.1234V" or "EXT5V_A=0.5678A"
+                        if "=" in line:
+                            key, val = line.strip().split("=", 1)
+                            try:
+                                numeric = float(val.rstrip("VA"))
+                                data[f"pmic_{key.lower()}"] = round(numeric, 3)
+                            except ValueError:
+                                pass
+            except Exception:
+                pass
+
         return web.json_response(data)
 
     async def api_params_get(self, request):
