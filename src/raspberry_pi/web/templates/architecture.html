@@ -375,7 +375,7 @@
                                 style="width:100%;margin-top:4px"
                                 oninput="onSpeedSlider()">
                         </div>
-                        <button onclick="saveSpeedParams()" style="
+                        <button onclick="saveSpeedParams(this)" style="
                             width:100%;padding:6px;border:none;border-radius:6px;
                             background:#6c5ce7;color:#fff;font-size:0.8rem;cursor:pointer;
                         ">Save</button>
@@ -399,7 +399,7 @@
                                 style="width:100%;margin-top:4px"
                                 oninput="onAvoidSlider()">
                         </div>
-                        <button onclick="saveAvoidParams()" style="
+                        <button onclick="saveAvoidParams(this)" style="
                             width:100%;padding:6px;border:none;border-radius:6px;
                             background:#6c5ce7;color:#fff;font-size:0.8rem;cursor:pointer;
                         ">Save</button>
@@ -574,7 +574,7 @@
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
-                    <button onclick="lidarSave()" style="
+                    <button onclick="lidarSave(this)" style="
                         padding:8px 16px;border-radius:6px;border:1px solid #00b894;
                         background:#00b894;color:#fff;cursor:pointer;font-weight:600;font-size:0.8rem;
                     ">Save</button>
@@ -955,7 +955,7 @@
             }).catch(() => {});
         }
 
-        function saveSpeedParams() {
+        function saveSpeedParams(btn) {
             const normal = parseInt(document.getElementById('normal-speed-slider').value);
             const slow = parseInt(document.getElementById('slow-speed-slider').value);
             fetch('/api/params', {
@@ -963,10 +963,9 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({auto_normal_speed: normal, auto_slow_speed: slow, _save: true})
             }).then(() => {
-                const btn = event.target;
                 btn.textContent = 'Saved!';
                 btn.style.background = '#00b894';
-                setTimeout(() => { btn.textContent = 'Save to file'; btn.style.background = '#6c5ce7'; }, 1500);
+                setTimeout(() => { btn.textContent = 'Save'; btn.style.background = '#6c5ce7'; }, 1500);
             }).catch(() => {});
         }
 
@@ -1015,7 +1014,7 @@
             }).catch(() => {});
         }
 
-        function saveAvoidParams() {
+        function saveAvoidParams(btn) {
             const min = parseInt(document.getElementById('avoid-min-slider').value);
             const max = parseInt(document.getElementById('avoid-max-slider').value);
             fetch('/api/params', {
@@ -1023,7 +1022,6 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({avoid_steer_min: min, avoid_steer_max: max, _save: true})
             }).then(() => {
-                const btn = event.target;
                 btn.textContent = 'Saved!';
                 btn.style.background = '#00b894';
                 setTimeout(() => { btn.textContent = 'Save'; btn.style.background = '#6c5ce7'; }, 1500);
@@ -1154,7 +1152,7 @@
             }, 150);
         }
 
-        function lidarSave() {
+        function lidarSave(btn) {
             fetch('/api/params', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -1165,10 +1163,9 @@
                     _save: true
                 })
             }).then(() => {
-                const el = document.getElementById('lidar-save-status');
-                el.textContent = 'Saved';
-                el.style.color = '#00b894';
-                setTimeout(() => { el.textContent = ''; }, 2000);
+                btn.textContent = 'Saved!';
+                btn.style.background = '#00b894';
+                setTimeout(() => { btn.textContent = 'Save'; btn.style.background = '#6c5ce7'; }, 1500);
             }).catch(() => {});
         }
 
