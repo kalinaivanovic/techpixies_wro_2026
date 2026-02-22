@@ -144,17 +144,22 @@ class StateMachine:
             return self.wall_follow.compute(world)
 
         elif self.state == RobotState.AVOID_PILLAR:
-            # Use blocking pillar, or closest pillar, or any visible pillar
-            pillar = world.blocking_pillar or world.closest_pillar
+            # ONLY use the pillar we're currently avoiding (same color).
+            # If we switch to a different-color pillar mid-maneuver,
+            # steering reverses and we hit the one we were passing.
+            pillar = self._find_avoiding_pillar(world)
             if pillar is None:
-                # Pillar lost from view — keep steering hard in avoidance direction
+                # Our pillar lost from view — keep steering hard in same direction
                 direction = -1 if self._avoiding_pillar == "red" else 1
                 steer = self.avoidance.steering_center + (direction * self.avoidance.max_steer_offset)
-                logger.info(
-                    f"AVOID blind: no pillar visible, holding steer={steer}° "
-                    f"(was {self._avoiding_pillar}, frame {self._avoid_frames})"
-                )
+                self._log_count_blind = getattr(self, '_log_count_blind', 0) + 1
+                if self._log_count_blind % 10 == 1:
+                    logger.info(
+                        f"AVOID blind: {self._avoiding_pillar} lost, holding steer={steer}° "
+                        f"(frame {self._avoid_frames})"
+                    )
                 return self.avoidance.slow_speed, steer
+            self._log_count_blind = 0
             speed, steering = self.avoidance.compute(pillar, world)
             self._update_avoid_phase(pillar)
             return speed, steering
@@ -237,6 +242,17 @@ class StateMachine:
             if self.parking is not None and self.parking.is_complete():
                 self.state = RobotState.DONE
                 logger.info("Transition: PARKING -> DONE")
+
+    def _find_avoiding_pillar(self, world: WorldState):
+        """Find the pillar we're currently avoiding (by color).
+
+        Returns the closest pillar of the same color we started avoiding,
+        or None if it's no longer visible.
+        """
+        matches = [p for p in world.pillars if p.color == self._avoiding_pillar]
+        if not matches:
+            return None
+        return min(matches, key=lambda p: p.distance)
 
     def _is_pillar_cleared(self, world: WorldState) -> bool:
         """Check if the pillar we're avoiding is safely past the robot body.
