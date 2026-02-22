@@ -32,8 +32,9 @@ In this educational demo, we SIMULATE LIDAR data so you can run this
 with just a camera. Real LIDAR integration is in the production code.
 """
 
+from __future__ import annotations
+
 import time
-from typing import Optional
 from dataclasses import dataclass
 
 from camera import Camera, ColorBlob

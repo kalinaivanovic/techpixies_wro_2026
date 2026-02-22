@@ -5,10 +5,10 @@ Since WRO track layout is randomized, the robot learns
 the track during lap 1 and uses that knowledge for laps 2-3.
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass, field
-from typing import Optional
-
 from .world_state import WorldState
 
 logger = logging.getLogger(__name__)
@@ -71,18 +71,18 @@ class TrackMap:
         self.pillar_tolerance = pillar_tolerance
 
         # Track data
-        self.direction: Optional[str] = None  # "CW" or "CCW"
+        self.direction: str | None = None  # "CW" or "CCW"
         self.corners: list[Corner] = []
         self.sections: list[Section] = []
         self.pillars: list[PillarRecord] = []
-        self.parking_zone: Optional[tuple[int, int]] = None
-        self.lap_length: Optional[int] = None
+        self.parking_zone: tuple[int, int] | None = None
+        self.lap_length: int | None = None
 
         # Mapping state
         self._first_lap = True
-        self._lap_start: Optional[int] = None
+        self._lap_start: int | None = None
         self._last_corner_enc = -1000
-        self._section_start: Optional[int] = None
+        self._section_start: int | None = None
         self._section_widths: list[float] = []
 
     @property
@@ -204,7 +204,7 @@ class TrackMap:
     # Query methods
     # =========================================================================
 
-    def get_next_corner(self, encoder: int) -> Optional[tuple[int, str]]:
+    def get_next_corner(self, encoder: int) -> tuple[int, str] | None:
         """Get (distance, direction) to next corner, or None."""
         if not self.corners:
             return None
@@ -253,7 +253,7 @@ class TrackMap:
 
         return result
 
-    def get_section_width(self, encoder: int) -> Optional[float]:
+    def get_section_width(self, encoder: int) -> float | None:
         """Get expected corridor width at current position."""
         if self.lap_length is None:
             for section in self.sections:
@@ -270,7 +270,7 @@ class TrackMap:
 
         return None
 
-    def get_distance_to_parking(self, encoder: int) -> Optional[int]:
+    def get_distance_to_parking(self, encoder: int) -> int | None:
         """Get distance to parking zone, or None."""
         if self.parking_zone is None:
             return None

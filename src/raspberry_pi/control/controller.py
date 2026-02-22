@@ -9,12 +9,12 @@ This is the main control loop that:
 5. Sends commands to motors
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import signal
 import sys
-from typing import Optional
-
 from config import CONTROL_LOOP_HZ
 from params import Parameters
 from sensors import Lidar, Camera, Motor
@@ -50,7 +50,7 @@ class Controller:
         self.motor = Motor(params=self.params)
 
         # Perception
-        self.fusion: Optional[SensorFusion] = None
+        self.fusion: SensorFusion | None = None
         self.track_map = TrackMap()
 
         # Decision
@@ -60,7 +60,7 @@ class Controller:
         self.visualizer = WorldStateVisualizer()
 
         # Latest perception snapshot (for web access)
-        self._latest_world: Optional[WorldState] = None
+        self._latest_world: WorldState | None = None
         self._latest_scan: dict[int, float] = {}
         self._latest_blobs: list[ColorBlob] = []
 
@@ -69,7 +69,7 @@ class Controller:
         self._loop_count = 0
 
     @property
-    def world_state(self) -> Optional[WorldState]:
+    def world_state(self) -> WorldState | None:
         """Latest WorldState for web access."""
         return self._latest_world
 

@@ -4,8 +4,9 @@ Parking strategies.
 Handles the parallel parking maneuver at the end of lap 3.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Tuple
 
 from perception.world_state import WorldState
 
@@ -14,7 +15,7 @@ class ParkingStrategy(ABC):
     """Base class for parking maneuver algorithms."""
 
     @abstractmethod
-    def compute(self, world: WorldState) -> Tuple[int, int]:
+    def compute(self, world: WorldState) -> tuple[int, int]:
         """
         Compute speed and steering for parking maneuver.
 

@@ -5,8 +5,9 @@ Detection: analyze LIDAR scan to find approaching corner.
 Handling: compute steering to execute the turn.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple
 
 from perception.world_state import WorldState
 
@@ -15,7 +16,7 @@ class CornerStrategy(ABC):
     """Base class for corner detection and handling."""
 
     @abstractmethod
-    def detect(self, scan: dict[int, float]) -> Optional[str]:
+    def detect(self, scan: dict[int, float]) -> str | None:
         """
         Detect if a corner is ahead.
 
@@ -28,7 +29,7 @@ class CornerStrategy(ABC):
         ...
 
     @abstractmethod
-    def compute(self, direction: str, world: WorldState) -> Tuple[int, int]:
+    def compute(self, direction: str, world: WorldState) -> tuple[int, int]:
         """
         Compute speed and steering to execute corner turn.
 
@@ -66,7 +67,7 @@ class LidarCornerDetection(CornerStrategy):
         self.front_window = front_window
         self.side_window = side_window
 
-    def detect(self, scan: dict[int, float]) -> Optional[str]:
+    def detect(self, scan: dict[int, float]) -> str | None:
         front = self._average_distance(scan, 0, self.front_window)
 
         if front is None or front > self.threshold:
@@ -85,7 +86,7 @@ class LidarCornerDetection(CornerStrategy):
 
         return "LEFT" if left > right else "RIGHT"
 
-    def compute(self, direction: str, world: WorldState) -> Tuple[int, int]:
+    def compute(self, direction: str, world: WorldState) -> tuple[int, int]:
         if direction == "LEFT":
             steering = self.steering_center - self.turn_offset
         else:
@@ -98,7 +99,7 @@ class LidarCornerDetection(CornerStrategy):
         scan: dict[int, float],
         center: int,
         window: int,
-    ) -> Optional[float]:
+    ) -> float | None:
         distances = []
         for offset in range(-window, window + 1):
             angle = (center + offset) % 360

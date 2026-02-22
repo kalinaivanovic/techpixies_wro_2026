@@ -5,8 +5,9 @@ Simple approach: average distances at fixed angles.
 Future: line fitting to distinguish walls from pillars.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from perception.world_state import WallInfo
 
@@ -68,7 +69,7 @@ class AverageWallDetection(WallDetectionStrategy):
         scan: dict[int, float],
         center: int,
         window: int,
-    ) -> Optional[float]:
+    ) -> float | None:
         """Get average distance around a center angle."""
         distances = []
         for offset in range(-window, window + 1):

@@ -33,8 +33,9 @@ It only knows about WorldState. This means:
   - Each layer has a single, clear responsibility
 """
 
+from __future__ import annotations
+
 from enum import Enum, auto
-from typing import Optional, Tuple
 
 from world_state import WorldState, Pillar
 
@@ -82,9 +83,9 @@ class Decision:
 
     def __init__(self):
         self.state = RobotState.WALL_FOLLOW
-        self._avoiding_color: Optional[str] = None
+        self._avoiding_color: str | None = None
 
-    def decide(self, world: WorldState) -> Tuple[int, int]:
+    def decide(self, world: WorldState) -> tuple[int, int]:
         """Main decision function.
 
         Args:
@@ -125,7 +126,7 @@ class Decision:
                 self._avoiding_color = None
                 print("→ WALL_FOLLOW")
 
-    def _wall_follow(self, world: WorldState) -> Tuple[int, int]:
+    def _wall_follow(self, world: WorldState) -> tuple[int, int]:
         """Default behavior: drive forward, stay centered in corridor.
 
         Uses proportional control:
@@ -154,7 +155,7 @@ class Decision:
 
         return speed, steering
 
-    def _avoid_pillar(self, world: WorldState) -> Tuple[int, int]:
+    def _avoid_pillar(self, world: WorldState) -> tuple[int, int]:
         """Avoid a pillar based on its color.
 
         WRO rules:

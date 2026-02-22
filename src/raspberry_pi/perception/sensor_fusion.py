@@ -9,10 +9,10 @@ The fusion process:
 5. Produce WorldState with confirmed pillars
 """
 
+from __future__ import annotations
+
 import logging
 import time
-from typing import Optional
-
 from config import ANGLE_MATCH_THRESHOLD, PILLAR_SIZE_MIN, PILLAR_SIZE_MAX
 from sensors import Lidar, Camera
 from sensors.camera import ColorBlob
@@ -106,7 +106,7 @@ class SensorFusion:
         scan: dict[int, float],
         center: int,
         window: int = 5,
-    ) -> Optional[float]:
+    ) -> float | None:
         """Get average distance around a center angle."""
         distances = []
         for offset in range(-window, window + 1):
@@ -179,7 +179,7 @@ class SensorFusion:
         self,
         blobs: list[ColorBlob],
         scan: dict[int, float],
-    ) -> Optional[float]:
+    ) -> float | None:
         """Detect parking marker (magenta color)."""
         magenta = [b for b in blobs if b.color == "magenta"]
         if not magenta:

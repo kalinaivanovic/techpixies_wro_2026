@@ -5,10 +5,10 @@ Manages high-level states and transitions based on WorldState.
 Each state delegates to a swappable strategy for computing (speed, steering).
 """
 
+from __future__ import annotations
+
 import logging
 from enum import Enum, auto
-from typing import Optional, Tuple
-
 from config import STEERING_CENTER
 from perception import WorldState, TrackMap
 from strategies import (
@@ -72,7 +72,7 @@ class StateMachine:
         self.state = RobotState.IDLE
         self.lap_count = 0
         self.target_laps = 3
-        self.direction: Optional[str] = None  # "CW" or "CCW"
+        self.direction: str | None = None  # "CW" or "CCW"
         self.params = params  # Shared Parameters for runtime speed tuning
 
         # Strategies
@@ -82,7 +82,7 @@ class StateMachine:
         self.parking = parking  # None until implemented
 
         # For pillar avoidance state
-        self._avoiding_pillar: Optional[str] = None  # Color being avoided
+        self._avoiding_pillar: str | None = None  # Color being avoided
         self._avoid_phase = 0  # 0=approach, 1=passing, 2=returning
         self._avoid_frames = 0  # How many frames in AVOID_PILLAR
         self._min_avoid_frames = 15  # Stay in avoidance at least this many frames (~0.3s at 50Hz)
@@ -103,7 +103,7 @@ class StateMachine:
         self,
         world: WorldState,
         track_map: TrackMap,
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """
         Decide speed and steering based on current perception.
 
@@ -141,9 +141,9 @@ class StateMachine:
             # Use blocking pillar, or closest pillar, or any visible pillar
             pillar = world.blocking_pillar or world.closest_pillar
             if pillar is None:
-                # Pillar lost from view — keep steering in avoidance direction
+                # Pillar lost from view — keep steering hard in avoidance direction
                 direction = -1 if self._avoiding_pillar == "red" else 1
-                steer = self.avoidance.steering_center + (direction * self.avoidance.min_steer_offset)
+                steer = self.avoidance.steering_center + (direction * self.avoidance.max_steer_offset)
                 logger.info(
                     f"AVOID blind: no pillar visible, holding steer={steer}° "
                     f"(was {self._avoiding_pillar}, frame {self._avoid_frames})"

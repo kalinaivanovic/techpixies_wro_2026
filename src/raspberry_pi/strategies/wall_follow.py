@@ -4,8 +4,9 @@ Wall following strategies - Maintain position in corridor.
 Takes WorldState, returns (speed, steering).
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple
 
 from perception.world_state import WorldState
 
@@ -14,7 +15,7 @@ class WallFollowStrategy(ABC):
     """Base class for wall following algorithms."""
 
     @abstractmethod
-    def compute(self, world: WorldState) -> Tuple[int, int]:
+    def compute(self, world: WorldState) -> tuple[int, int]:
         """
         Compute speed and steering to follow walls.
 
@@ -51,7 +52,7 @@ class ProportionalWallFollow(WallFollowStrategy):
         self.steering_min = steering_min
         self.steering_max = steering_max
 
-    def compute(self, world: WorldState) -> Tuple[int, int]:
+    def compute(self, world: WorldState) -> tuple[int, int]:
         speed = self.normal_speed
         left = world.walls.left_distance
         right = world.walls.right_distance

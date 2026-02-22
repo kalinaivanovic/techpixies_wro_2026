@@ -23,8 +23,9 @@ It never touches raw camera or LIDAR data directly.
 This separation makes the code cleaner and easier to test.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -44,12 +45,12 @@ class WallInfo:
          |<---- corridor_width --->|
     """
 
-    left_distance: Optional[float] = None   # mm, None if not visible
-    right_distance: Optional[float] = None  # mm
-    front_distance: Optional[float] = None  # mm
+    left_distance: float | None = None   # mm, None if not visible
+    right_distance: float | None = None  # mm
+    front_distance: float | None = None  # mm
 
     @property
-    def corridor_width(self) -> Optional[float]:
+    def corridor_width(self) -> float | None:
         """Total corridor width = left + right distance."""
         if self.left_distance is None or self.right_distance is None:
             return None
@@ -124,7 +125,7 @@ class WorldState:
     pillars: list[Pillar] = field(default_factory=list)
 
     # Corner detection (from LIDAR - front wall close)
-    corner_ahead: Optional[str] = None  # "LEFT", "RIGHT", or None
+    corner_ahead: str | None = None  # "LEFT", "RIGHT", or None
 
     # ── Convenience properties ──────────────────────────────
 
@@ -134,14 +135,14 @@ class WorldState:
         return len(self.pillars) > 0
 
     @property
-    def closest_pillar(self) -> Optional[Pillar]:
+    def closest_pillar(self) -> Pillar | None:
         """Get the nearest pillar (if any)."""
         if not self.pillars:
             return None
         return min(self.pillars, key=lambda p: p.distance)
 
     @property
-    def blocking_pillar(self) -> Optional[Pillar]:
+    def blocking_pillar(self) -> Pillar | None:
         """Get the pillar that's directly ahead and needs avoiding."""
         blocking = [p for p in self.pillars if p.is_blocking()]
         if not blocking:

@@ -5,13 +5,13 @@ Provides continuous scanning with background thread.
 Returns LidarFrame with 360-degree scan data.
 """
 
+from __future__ import annotations
+
 import logging
 import math
 import threading
 import time
 from dataclasses import dataclass
-from typing import Optional
-
 import cv2
 import numpy as np
 from pyrplidar import PyRPlidar
@@ -64,9 +64,9 @@ class Lidar:
         self.baudrate = baudrate
         self.motor_pwm = motor_pwm
 
-        self._lidar: Optional[PyRPlidar] = None
+        self._lidar: PyRPlidar | None = None
         self._running = False
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
 
         # Latest scan data: angle (0-359) -> distance (mm)
@@ -138,7 +138,7 @@ class Lidar:
         with self._lock:
             return self._scan_timestamp
 
-    def get_distance(self, angle: int) -> Optional[float]:
+    def get_distance(self, angle: int) -> float | None:
         """
         Get distance at specific angle.
 
@@ -151,19 +151,19 @@ class Lidar:
         with self._lock:
             return self._scan.get(angle % 360)
 
-    def get_front(self) -> Optional[float]:
+    def get_front(self) -> float | None:
         """Get average distance in front direction (±10 degrees)."""
         return self._get_average_distance(0, window=10)
 
-    def get_left(self) -> Optional[float]:
+    def get_left(self) -> float | None:
         """Get average distance to the left (270° ±10)."""
         return self._get_average_distance(270, window=10)
 
-    def get_right(self) -> Optional[float]:
+    def get_right(self) -> float | None:
         """Get average distance to the right (90° ±10)."""
         return self._get_average_distance(90, window=10)
 
-    def _get_average_distance(self, center: int, window: int = 10) -> Optional[float]:
+    def _get_average_distance(self, center: int, window: int = 10) -> float | None:
         """Get average distance around a center angle."""
         with self._lock:
             distances = []
@@ -194,7 +194,7 @@ class Lidar:
                 filtered[angle_deg] = distance
         return filtered
 
-    def get_jpeg_frame(self, size: int = 500, quality: int = 80) -> Optional[bytes]:
+    def get_jpeg_frame(self, size: int = 500, quality: int = 80) -> bytes | None:
         """Get bird's eye view with detected clusters as JPEG bytes.
 
         Uses params.lidar_max_distance and params.lidar_display_angle for filtering.
@@ -249,7 +249,7 @@ class Lidar:
             return None
         return jpeg.tobytes()
 
-    def get_jpeg_raw(self, size: int = 500, quality: int = 80) -> Optional[bytes]:
+    def get_jpeg_raw(self, size: int = 500, quality: int = 80) -> bytes | None:
         """Get raw bird's eye view (points only, no clusters) as JPEG bytes."""
         scan = self.get_scan()
         if not scan:

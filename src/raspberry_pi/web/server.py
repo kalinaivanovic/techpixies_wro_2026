@@ -2,6 +2,8 @@
 Web server - aiohttp application for debug interface.
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -10,8 +12,6 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Optional
-
 from aiohttp import web
 
 from config import WEB_HOST, WEB_PORT
@@ -42,7 +42,7 @@ class WebServer:
         """
         self.controller = controller
         self.app = web.Application()
-        self._keepalive_thread: Optional[threading.Thread] = None
+        self._keepalive_thread: threading.Thread | None = None
         self._keepalive_running = False
         self._setup_routes()
         self.app.on_startup.append(self._on_startup)

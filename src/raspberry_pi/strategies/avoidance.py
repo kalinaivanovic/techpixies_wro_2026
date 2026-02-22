@@ -9,9 +9,10 @@ WRO rules:
 - GREEN pillar → pass on LEFT (steer right)
 """
 
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
-from typing import Tuple
 
 from perception.world_state import Pillar, WorldState
 
@@ -24,7 +25,7 @@ class AvoidanceStrategy(ABC):
     @abstractmethod
     def compute(
         self, pillar: Pillar, world: WorldState
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """
         Compute speed and steering to avoid a pillar.
 
@@ -50,12 +51,12 @@ class ProportionalAvoidance(AvoidanceStrategy):
         self,
         slow_speed: int = 35,
         steering_center: int = 90,
-        max_steer_offset: int = 55,
-        min_steer_offset: int = 20,
+        max_steer_offset: int = 80,
+        min_steer_offset: int = 45,
         max_distance: float = 800.0,
-        angle_gain: float = 0.5,
-        steering_min: int = 35,
-        steering_max: int = 145,
+        angle_gain: float = 0.8,
+        steering_min: int = 10,
+        steering_max: int = 170,
     ):
         self.slow_speed = slow_speed
         self.steering_center = steering_center
@@ -69,24 +70,25 @@ class ProportionalAvoidance(AvoidanceStrategy):
 
     def compute(
         self, pillar: Pillar, world: WorldState
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         # RED → pass on RIGHT → steer LEFT (steering < 90)
         # GREEN → pass on LEFT → steer RIGHT (steering > 90)
         direction = -1 if pillar.color == "red" else 1
 
         # Urgency from distance: 0.0 when far, 1.0 when close
-        # Quadratic curve — ramps up faster at medium distance
+        # Square root curve — ramps up FAST even at medium distance
         linear = 1.0 - min(pillar.distance / self.max_distance, 1.0)
-        urgency = linear * linear
+        urgency = linear ** 0.5
         base_offset = self.min_steer_offset + urgency * (
             self.max_steer_offset - self.min_steer_offset
         )
 
-        # Angle correction: steer harder when pillar is on the pass side.
+        # Angle correction: steer harder when pillar is in the way.
+        # If pillar is on the side we're steering toward, steer harder.
         # pillar.angle: positive = right, negative = left
-        # RED (direction=-1): pillar right (+angle) → needs more left steer
-        # GREEN (direction=+1): pillar left (-angle) → needs more right steer
-        angle_correction = -direction * pillar.angle * self.angle_gain
+        # direction: -1 = steer left, +1 = steer right
+        # Pillar on same side as steer direction → need more offset
+        angle_correction = direction * pillar.angle * self.angle_gain
 
         offset = int(base_offset + angle_correction)
         offset = max(self.min_steer_offset, min(self.max_steer_offset, offset))
@@ -98,7 +100,7 @@ class ProportionalAvoidance(AvoidanceStrategy):
         if self._log_count % 10 == 1:  # Log every 10th call (~5Hz at 50Hz loop)
             logger.info(
                 f"AVOID {pillar.color.upper()} dist={pillar.distance:.0f}mm "
-                f"angle={pillar.angle:.1f}° "
+                f"angle={pillar.angle:.1f}° urgency={urgency:.2f} "
                 f"→ speed={self.slow_speed} steer={steering}°"
             )
 

@@ -9,8 +9,6 @@ Produces two views:
 from __future__ import annotations
 
 import math
-from typing import Optional
-
 import cv2
 import numpy as np
 
@@ -43,7 +41,7 @@ class WorldStateVisualizer:
 
     def render_birdseye(
         self,
-        world: Optional[WorldState],
+        world: WorldState | None,
         scan: dict[int, float],
         state_name: str = "",
         lap: int = 0,
@@ -117,8 +115,8 @@ class WorldStateVisualizer:
 
     def render_camera(
         self,
-        world: Optional[WorldState],
-        frame: Optional[np.ndarray],
+        world: WorldState | None,
+        frame: np.ndarray | None,
         blobs: list[ColorBlob],
         state_name: str = "",
         lap: int = 0,
@@ -311,7 +309,7 @@ class WorldStateVisualizer:
     @staticmethod
     def _find_matching_blob(
         pillar: Pillar, blobs: list[ColorBlob],
-    ) -> Optional[ColorBlob]:
+    ) -> ColorBlob | None:
         """Find the camera blob closest in angle to a confirmed pillar."""
         best = None
         best_diff = float("inf")
@@ -326,7 +324,7 @@ class WorldStateVisualizer:
 
     @staticmethod
     def _is_blob_confirmed(
-        blob: ColorBlob, world: Optional[WorldState],
+        blob: ColorBlob, world: WorldState | None,
     ) -> bool:
         if world is None:
             return False

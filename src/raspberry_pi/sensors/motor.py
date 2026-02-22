@@ -8,11 +8,11 @@ Handles:
 - Emergency stop
 """
 
+from __future__ import annotations
+
 import math
 import logging
 import time
-from typing import Optional
-
 import serial
 
 from config import ESP32_PORT, ESP32_BAUDRATE, STEERING_CENTER
@@ -40,7 +40,7 @@ class Motor:
         self.baudrate = baudrate
         self.params = params
 
-        self._serial: Optional[serial.Serial] = None
+        self._serial: serial.Serial | None = None
         self._speed = 0
         self._steering = STEERING_CENTER
         self._encoder = 0

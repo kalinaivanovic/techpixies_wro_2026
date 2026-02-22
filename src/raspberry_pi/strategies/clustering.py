@@ -6,11 +6,11 @@ Two approaches:
 - RawScanClustering: Walk angles, group by gap (fast, simple)
 """
 
+from __future__ import annotations
+
 import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
-
 import cv2
 import numpy as np
 
