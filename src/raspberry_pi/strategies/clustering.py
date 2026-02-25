@@ -53,15 +53,7 @@ class OpenCVClustering(ClusteringStrategy):
     4. Classify by physical width: small = pillar, large = wall
     """
 
-    def __init__(
-        self,
-        image_size: int = 500,
-        max_range: int = 3000,
-        dilate_kernel: int = 7,
-        dilate_iterations: int = 2,
-        min_area_px: int = 20,
-        pillar_max_width: float = 120.0,
-    ):
+    def __init__(self, image_size: int = 500, max_range: int = 3000, dilate_kernel: int = 7, dilate_iterations: int = 2, min_area_px: int = 20, pillar_max_width: float = 120.0):
         self.image_size = image_size
         self.max_range = max_range
         self.dilate_kernel = dilate_kernel
@@ -154,13 +146,7 @@ class RawScanClustering(ClusteringStrategy):
     3. Calculate physical width from angular width + distance
     """
 
-    def __init__(
-        self,
-        angle_gap: int = 5,
-        distance_diff: int = 150,
-        min_points: int = 3,
-        pillar_max_width: float = 120.0,
-    ):
+    def __init__(self, angle_gap: int = 5, distance_diff: int = 150, min_points: int = 3, pillar_max_width: float = 120.0):
         self.angle_gap = angle_gap
         self.distance_diff = distance_diff
         self.min_points = min_points
@@ -197,9 +183,7 @@ class RawScanClustering(ClusteringStrategy):
 
         return objects
 
-    def _make_object(
-        self, angles: list[int], scan: dict[int, float]
-    ) -> DetectedObject:
+    def _make_object(self, angles: list[int], scan: dict[int, float]) -> DetectedObject:
         distances = [scan[a] for a in angles]
         avg_distance = sum(distances) / len(distances)
         center_angle = sum(angles) / len(angles)

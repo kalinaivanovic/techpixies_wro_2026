@@ -62,11 +62,7 @@ class TrackMap:
         next_corner = track_map.get_next_corner(encoder)
     """
 
-    def __init__(
-        self,
-        corner_tolerance: int = 100,
-        pillar_tolerance: int = 50,
-    ):
+    def __init__(self, corner_tolerance: int = 100, pillar_tolerance: int = 50):
         self.corner_tolerance = corner_tolerance
         self.pillar_tolerance = pillar_tolerance
 

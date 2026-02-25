@@ -52,13 +52,7 @@ class Lidar:
         lidar.stop()
     """
 
-    def __init__(
-        self,
-        params,
-        port: str = LIDAR_PORT,
-        baudrate: int = LIDAR_BAUDRATE,
-        motor_pwm: int = 660,
-    ):
+    def __init__(self, params, port: str = LIDAR_PORT, baudrate: int = LIDAR_BAUDRATE, motor_pwm: int = 660):
         self.params = params
         self.port = port
         self.baudrate = baudrate
@@ -275,9 +269,7 @@ class Lidar:
             return None
         return jpeg.tobytes()
 
-    def _scan_to_image(
-        self, scan: dict[int, float], size: int, max_range: int
-    ) -> np.ndarray:
+    def _scan_to_image(self, scan: dict[int, float], size: int, max_range: int) -> np.ndarray:
         """Convert scan dict to bird's eye view binary image.
 
         Robot is at center. Forward (angle 0) = up.
@@ -302,13 +294,7 @@ class Lidar:
 
         return image
 
-    def _find_clusters(
-        self,
-        image: np.ndarray,
-        scan: dict[int, float],
-        size: int,
-        max_range: int,
-    ) -> list["LidarCluster"]:
+    def _find_clusters(self, image: np.ndarray, scan: dict[int, float], size: int, max_range: int) -> list["LidarCluster"]:
         """Find clusters in bird's eye view image using OpenCV."""
         # Dilate to connect nearby points
         kernel = np.ones((7, 7), np.uint8)
@@ -389,9 +375,17 @@ class Lidar:
                 current_scan[angle].append(distance)
                 current_quality[angle].append(quality)
 
-                # When we've gone full circle, publish the scan
+                # Instant mode: update live scan only for forward-facing angles
+                if self.params.lidar_instant:
+                    signed = angle if angle <= 180 else angle - 360
+                    if -self.params.lidar_display_angle <= signed <= self.params.lidar_display_angle:
+                        with self._lock:
+                            self._scan[angle] = distance
+                            self._scan_quality[angle] = quality
+                            self._scan_timestamp = time.time()
+
+                # Full rotation: publish averaged scan
                 if angle == 0 and len(current_scan) > 180:
-                    # Average readings per angle
                     averaged = {
                         a: sum(d) / len(d)
                         for a, d in current_scan.items()

@@ -51,15 +51,7 @@ class LidarCornerDetection(CornerStrategy):
     Direction is determined by which side has more open space.
     """
 
-    def __init__(
-        self,
-        threshold: int = 400,
-        slow_speed: int = 35,
-        steering_center: int = 90,
-        turn_offset: int = 25,
-        front_window: int = 5,
-        side_window: int = 15,
-    ):
+    def __init__(self, threshold: int = 400, slow_speed: int = 35, steering_center: int = 90, turn_offset: int = 25, front_window: int = 5, side_window: int = 15):
         self.threshold = threshold
         self.slow_speed = slow_speed
         self.steering_center = steering_center
@@ -94,12 +86,7 @@ class LidarCornerDetection(CornerStrategy):
 
         return self.slow_speed, steering
 
-    def _average_distance(
-        self,
-        scan: dict[int, float],
-        center: int,
-        window: int,
-    ) -> float | None:
+    def _average_distance(self, scan: dict[int, float], center: int, window: int) -> float | None:
         distances = []
         for offset in range(-window, window + 1):
             angle = (center + offset) % 360

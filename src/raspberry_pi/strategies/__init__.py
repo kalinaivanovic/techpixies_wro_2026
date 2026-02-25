@@ -29,4 +29,5 @@ from .parking import (
 from .wall_detection import (
     WallDetectionStrategy,
     AverageWallDetection,
+    ClusteringWallDetection,
 )

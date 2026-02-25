@@ -61,14 +61,7 @@ class StateMachine:
         )
     """
 
-    def __init__(
-        self,
-        wall_follow: WallFollowStrategy = None,
-        avoidance: AvoidanceStrategy = None,
-        corner: CornerStrategy = None,
-        parking: ParkingStrategy = None,
-        params=None,
-    ):
+    def __init__(self, wall_follow: WallFollowStrategy = None, avoidance: AvoidanceStrategy = None, corner: CornerStrategy = None, parking: ParkingStrategy = None, params=None):
         self.state = RobotState.IDLE
         self.lap_count = 0
         self.target_laps = 3
@@ -105,11 +98,7 @@ class StateMachine:
         self.state = RobotState.DONE
         logger.info("Race stopped")
 
-    def decide(
-        self,
-        world: WorldState,
-        track_map: TrackMap,
-    ) -> tuple[int, int]:
+    def decide(self, world: WorldState, track_map: TrackMap) -> tuple[int, int]:
         """
         Decide speed and steering based on current perception.
 

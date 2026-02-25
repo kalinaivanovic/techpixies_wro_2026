@@ -48,15 +48,7 @@ class SensorFusion:
         )
     """
 
-    def __init__(
-        self,
-        lidar: Lidar,
-        camera: Camera,
-        get_encoder: callable,
-        clustering: ClusteringStrategy = None,
-        corner: CornerStrategy = None,
-        wall_detection: WallDetectionStrategy = None,
-    ):
+    def __init__(self, lidar: Lidar, camera: Camera, get_encoder: callable, clustering: ClusteringStrategy = None, corner: CornerStrategy = None, wall_detection: WallDetectionStrategy = None):
         self.lidar = lidar
         self.camera = camera
         self.get_encoder = get_encoder
@@ -101,12 +93,7 @@ class SensorFusion:
             parking_marker=parking_marker,
         )
 
-    def _average_distance(
-        self,
-        scan: dict[int, float],
-        center: int,
-        window: int = 5,
-    ) -> float | None:
+    def _average_distance(self, scan: dict[int, float], center: int, window: int = 5) -> float | None:
         """Get average distance around a center angle."""
         distances = []
         for offset in range(-window, window + 1):
@@ -118,11 +105,7 @@ class SensorFusion:
             return None
         return sum(distances) / len(distances)
 
-    def _match_pillars(
-        self,
-        objects: list[DetectedObject],
-        blobs: list[ColorBlob],
-    ) -> list[Pillar]:
+    def _match_pillars(self, objects: list[DetectedObject], blobs: list[ColorBlob]) -> list[Pillar]:
         """Match camera color detections with LIDAR objects."""
         pillars = []
         used_objects = set()
@@ -175,11 +158,7 @@ class SensorFusion:
 
         return pillars
 
-    def _detect_parking(
-        self,
-        blobs: list[ColorBlob],
-        scan: dict[int, float],
-    ) -> float | None:
+    def _detect_parking(self, blobs: list[ColorBlob], scan: dict[int, float]) -> float | None:
         """Detect parking marker (magenta color)."""
         magenta = [b for b in blobs if b.color == "magenta"]
         if not magenta:

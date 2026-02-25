@@ -23,9 +23,7 @@ class AvoidanceStrategy(ABC):
     """Base class for pillar avoidance algorithms."""
 
     @abstractmethod
-    def compute(
-        self, pillar: Pillar, world: WorldState
-    ) -> tuple[int, int]:
+    def compute(self, pillar: Pillar, world: WorldState) -> tuple[int, int]:
         """
         Compute speed and steering to avoid a pillar.
 
@@ -47,17 +45,7 @@ class ProportionalAvoidance(AvoidanceStrategy):
     Pillar angle adds extra correction (pillar to the right → steer harder left).
     """
 
-    def __init__(
-        self,
-        slow_speed: int = 35,
-        steering_center: int = 90,
-        max_steer_offset: int = 80,
-        min_steer_offset: int = 45,
-        max_distance: float = 800.0,
-        angle_gain: float = 0.8,
-        steering_min: int = 10,
-        steering_max: int = 170,
-    ):
+    def __init__(self, slow_speed: int = 35, steering_center: int = 90, max_steer_offset: int = 80, min_steer_offset: int = 45, max_distance: float = 800.0, angle_gain: float = 0.8, steering_min: int = 10, steering_max: int = 170):
         self.slow_speed = slow_speed
         self.steering_center = steering_center
         self.max_steer_offset = max_steer_offset
@@ -68,9 +56,7 @@ class ProportionalAvoidance(AvoidanceStrategy):
         self.steering_max = steering_max
         self._log_count = 0
 
-    def compute(
-        self, pillar: Pillar, world: WorldState
-    ) -> tuple[int, int]:
+    def compute(self, pillar: Pillar, world: WorldState) -> tuple[int, int]:
         # RED → pass on RIGHT → steer LEFT (steering < 90)
         # GREEN → pass on LEFT → steer RIGHT (steering > 90)
         direction = -1 if pillar.color == "red" else 1

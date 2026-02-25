@@ -575,6 +575,13 @@
                         <span id="lidar-quality-val" style="font-size:1rem;font-weight:600;font-family:monospace;color:#222;min-width:20px;text-align:right">0</span>
                     </div>
                 </div>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                    <label style="font-size:0.75rem;color:#666;cursor:pointer;display:flex;align-items:center;gap:6px">
+                        <input type="checkbox" id="lidar-instant" onchange="lidarInstantChanged()">
+                        <span style="text-transform:uppercase;letter-spacing:1px">Live mode</span>
+                    </label>
+                    <span style="font-size:0.65rem;color:#aaa">Update per-point instead of per-rotation (~10x faster)</span>
+                </div>
                 <div style="display:flex;align-items:center;gap:8px">
                     <button onclick="lidarSave(this)" style="
                         padding:8px 16px;border-radius:6px;border:1px solid #00b894;
@@ -1137,6 +1144,12 @@
                     document.getElementById('lidar-quality-val').textContent = data.min_quality;
                 }
             }).catch(() => {});
+            // Load instant mode state
+            fetch('/api/params').then(r => r.json()).then(data => {
+                if (data.lidar_instant !== undefined) {
+                    document.getElementById('lidar-instant').checked = data.lidar_instant;
+                }
+            }).catch(() => {});
         }
 
         function closeLidarOverlay() {
@@ -1170,6 +1183,15 @@
             }, 150);
         }
 
+        function lidarInstantChanged() {
+            const checked = document.getElementById('lidar-instant').checked;
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({lidar_instant: checked})
+            }).catch(() => {});
+        }
+
         function lidarSave(btn) {
             fetch('/api/params', {
                 method: 'POST',
@@ -1178,6 +1200,7 @@
                     lidar_max_distance: parseInt(document.getElementById('lidar-distance').value),
                     lidar_display_angle: parseInt(document.getElementById('lidar-angle').value),
                     lidar_min_quality: parseInt(document.getElementById('lidar-quality').value),
+                    lidar_instant: document.getElementById('lidar-instant').checked,
                     _save: true
                 })
             }).then(() => {

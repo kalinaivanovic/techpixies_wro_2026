@@ -39,14 +39,7 @@ class WorldStateVisualizer:
 
     # ── Public API ──────────────────────────────────────────────
 
-    def render_birdseye(
-        self,
-        world: WorldState | None,
-        scan: dict[int, float],
-        state_name: str = "",
-        lap: int = 0,
-        direction: str = "",
-    ) -> bytes:
+    def render_birdseye(self, world: WorldState | None, scan: dict[int, float], state_name: str = "", lap: int = 0, direction: str = "") -> bytes:
         """Render bird's eye view with WorldState annotations.
 
         Args:
@@ -113,14 +106,7 @@ class WorldStateVisualizer:
 
         return self._encode(image)
 
-    def render_camera(
-        self,
-        world: WorldState | None,
-        frame: np.ndarray | None,
-        blobs: list[ColorBlob],
-        state_name: str = "",
-        lap: int = 0,
-    ) -> bytes:
+    def render_camera(self, world: WorldState | None, frame: np.ndarray | None, blobs: list[ColorBlob], state_name: str = "", lap: int = 0) -> bytes:
         """Render camera frame with fusion annotations.
 
         Args:
@@ -184,19 +170,14 @@ class WorldStateVisualizer:
     # ── Bird's eye helpers ──────────────────────────────────────
 
     @staticmethod
-    def _polar_to_px(
-        angle_deg: float, distance: float, center: int, scale: float,
-    ) -> tuple[int, int]:
+    def _polar_to_px(angle_deg: float, distance: float, center: int, scale: float) -> tuple[int, int]:
         """Convert polar (angle, distance) to pixel coords."""
         angle_rad = math.radians(angle_deg)
         x = int(center + distance * math.sin(angle_rad) * scale)
         y = int(center - distance * math.cos(angle_rad) * scale)
         return x, y
 
-    def _draw_wall_lines(
-        self, image: np.ndarray, world: WorldState,
-        center: int, scale: float,
-    ) -> None:
+    def _draw_wall_lines(self, image: np.ndarray, world: WorldState, center: int, scale: float) -> None:
         walls = world.walls
         size = self.size
         line_len = size // 3  # Length of the wall indicator line
@@ -240,10 +221,7 @@ class WorldStateVisualizer:
                 0.35, _YELLOW, 1,
             )
 
-    def _draw_pillar_marker(
-        self, image: np.ndarray, pillar: Pillar,
-        center: int, scale: float,
-    ) -> None:
+    def _draw_pillar_marker(self, image: np.ndarray, pillar: Pillar, center: int, scale: float) -> None:
         color = _PILLAR_COLORS.get(pillar.color, _WHITE)
 
         # Convert pillar angle: camera convention (positive=right) to LIDAR convention
@@ -283,10 +261,7 @@ class WorldStateVisualizer:
             cv2.FONT_HERSHEY_SIMPLEX, 0.45, _ORANGE, 1,
         )
 
-    def _draw_text_overlay(
-        self, image: np.ndarray,
-        state_name: str, lap: int, direction: str, encoder: int,
-    ) -> None:
+    def _draw_text_overlay(self, image: np.ndarray, state_name: str, lap: int, direction: str, encoder: int) -> None:
         lines = []
         if state_name:
             lines.append(state_name)
@@ -307,9 +282,7 @@ class WorldStateVisualizer:
     # ── Camera helpers ──────────────────────────────────────────
 
     @staticmethod
-    def _find_matching_blob(
-        pillar: Pillar, blobs: list[ColorBlob],
-    ) -> ColorBlob | None:
+    def _find_matching_blob(pillar: Pillar, blobs: list[ColorBlob]) -> ColorBlob | None:
         """Find the camera blob closest in angle to a confirmed pillar."""
         best = None
         best_diff = float("inf")
@@ -323,9 +296,7 @@ class WorldStateVisualizer:
         return best
 
     @staticmethod
-    def _is_blob_confirmed(
-        blob: ColorBlob, world: WorldState | None,
-    ) -> bool:
+    def _is_blob_confirmed(blob: ColorBlob, world: WorldState | None) -> bool:
         if world is None:
             return False
         for pillar in world.pillars:
@@ -334,9 +305,7 @@ class WorldStateVisualizer:
         return False
 
     @staticmethod
-    def _draw_confirmed_blob(
-        image: np.ndarray, blob: ColorBlob, pillar: Pillar,
-    ) -> None:
+    def _draw_confirmed_blob(image: np.ndarray, blob: ColorBlob, pillar: Pillar) -> None:
         color = _PILLAR_COLORS.get(blob.color, _WHITE)
         x = blob.x - blob.width // 2
         y = blob.y - blob.height // 2
@@ -406,9 +375,7 @@ class WorldStateVisualizer:
     # ── Utilities ───────────────────────────────────────────────
 
     @staticmethod
-    def _put_centered(
-        image: np.ndarray, text: str, cx: int, cy: int, color: tuple,
-    ) -> None:
+    def _put_centered(image: np.ndarray, text: str, cx: int, cy: int, color: tuple) -> None:
         (tw, th), _ = cv2.getTextSize(
             text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 1,
         )

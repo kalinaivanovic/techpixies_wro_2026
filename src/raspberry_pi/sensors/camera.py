@@ -61,12 +61,7 @@ class Camera:
     SENSOR_FULL_WIDTH = 1640
     SENSOR_FULL_HEIGHT = 1232
 
-    def __init__(
-        self,
-        params,
-        index: int = CAMERA_INDEX,
-        fov: float = CAMERA_FOV,
-    ):
+    def __init__(self, params, index: int = CAMERA_INDEX, fov: float = CAMERA_FOV):
         self.params = params
         self.index = index
         self.fov = fov
