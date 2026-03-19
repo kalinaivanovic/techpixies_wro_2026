@@ -6,7 +6,8 @@ After=multi-user.target
 Type=simple
 User=kalina
 WorkingDirectory=/home/kalina/techpixies_wro_2026/src/raspberry_pi
-ExecStart=/home/kalina/techpixies_wro_2026/src/raspberry_pi/bin/python system/button_daemon.py
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/kalina/techpixies_wro_2026/src/raspberry_pi/bin/python -u system/button_daemon.py
 Restart=always
 RestartSec=3
 StandardOutput=journal
