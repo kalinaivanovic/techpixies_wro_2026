@@ -103,6 +103,7 @@ def main():
                     encoder_fn = (lambda: self.motor.encoder) if self.motor else (lambda: 0)
                     self._fusion = SensorFusion(
                         self.lidar, self.camera, encoder_fn,
+                        params=self.params,
                     )
 
             @property

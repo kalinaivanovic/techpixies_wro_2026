@@ -103,6 +103,7 @@ class Controller:
                 self.lidar,
                 self.camera,
                 lambda: self.motor.encoder,
+                params=self.params,
             )
 
             # Start race

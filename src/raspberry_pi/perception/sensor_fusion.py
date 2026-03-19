@@ -48,13 +48,14 @@ class SensorFusion:
         )
     """
 
-    def __init__(self, lidar: Lidar, camera: Camera, get_encoder: callable, clustering: ClusteringStrategy = None, corner: CornerStrategy = None, wall_detection: WallDetectionStrategy = None):
+    def __init__(self, lidar: Lidar, camera: Camera, get_encoder: callable, clustering: ClusteringStrategy = None, corner: CornerStrategy = None, wall_detection: WallDetectionStrategy = None, params=None):
         self.lidar = lidar
         self.camera = camera
         self.get_encoder = get_encoder
         self.clustering = clustering or OpenCVClustering()
         self.corner = corner or LidarCornerDetection()
         self.wall_detection = wall_detection or AverageWallDetection()
+        self.params = params
         self._last_pillar_count = 0  # For change-only logging
 
     def update(self) -> WorldState:
@@ -64,6 +65,10 @@ class SensorFusion:
         Returns:
             WorldState with current perception
         """
+        # Apply runtime params to strategies
+        if self.params:
+            self.corner.threshold = self.params.corner_threshold
+
         # Get sensor data
         scan = self.lidar.get_scan()
         blobs = self.camera.get_blobs()

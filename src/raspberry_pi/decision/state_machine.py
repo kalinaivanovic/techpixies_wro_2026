@@ -121,7 +121,9 @@ class StateMachine:
             self.avoidance.slow_speed = self.params.auto_slow_speed
             self.avoidance.min_steer_offset = self.params.avoid_steer_min
             self.avoidance.max_steer_offset = self.params.avoid_steer_max
-            self.corner.slow_speed = self.params.auto_slow_speed
+            self.corner.slow_speed = self.params.corner_speed
+            self.corner.turn_offset = self.params.corner_turn_offset
+            self.corner.threshold = self.params.corner_threshold
 
         # Update direction from track map
         if self.direction is None and track_map.direction:

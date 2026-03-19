@@ -94,6 +94,11 @@ class Parameters:
     avoid_steer_max: int = 80  # Maximum turn when pillar very close
     blocking_angle: float = 35.0  # Degrees from center — pillar within this is "blocking"
 
+    # Corner detection and handling
+    corner_threshold: int = 500  # mm — front wall distance to trigger corner
+    corner_turn_offset: int = 25  # degrees offset from center (90 ± this)
+    corner_speed: int = 35  # speed during corner turn
+
     # LIDAR filtering
     lidar_min_distance: int = 60  # mm, ignore readings closer (robot body)
     lidar_min_quality: int = 10  # 0-47, minimum quality to accept
