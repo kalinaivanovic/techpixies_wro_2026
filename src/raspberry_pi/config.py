@@ -13,7 +13,7 @@ LIDAR_PORT = "/dev/ttyUSB0"
 LIDAR_BAUDRATE = 460800
 
 # ESP32 (Motor controller)
-ESP32_PORT = "/dev/ttyUSB1"
+ESP32_PORT = "/dev/ttyAMA0"
 ESP32_BAUDRATE = 115200
 
 # Camera
