@@ -54,6 +54,26 @@ class Parameters:
     magenta_v_min: int = 100
     magenta_v_max: int = 255
 
+    # Orange floor line (CMYK 0,60,100,0 → approx HSV 10-25)
+    orange_h_min: int = 5
+    orange_h_max: int = 25
+    orange_s_min: int = 100
+    orange_s_max: int = 255
+    orange_v_min: int = 100
+    orange_v_max: int = 255
+
+    # Blue floor line (CMYK 100,80,0,0 → approx HSV 100-130)
+    blue_h_min: int = 90
+    blue_h_max: int = 130
+    blue_s_min: int = 50
+    blue_s_max: int = 255
+    blue_v_min: int = 50
+    blue_v_max: int = 255
+
+    # Floor line detection
+    line_y_fraction: float = 0.6  # Only detect in bottom 40% (y > 60% of frame height)
+    line_min_contour_area: int = 200  # Minimum pixels for floor line blob
+
     # Camera resolution (restart camera to apply changes)
     camera_width: int = 640
     camera_height: int = 480
@@ -72,6 +92,7 @@ class Parameters:
     # Avoidance steering (degrees offset from center 90)
     avoid_steer_min: int = 45  # Minimum turn when pillar detected
     avoid_steer_max: int = 80  # Maximum turn when pillar very close
+    blocking_angle: float = 35.0  # Degrees from center — pillar within this is "blocking"
 
     # LIDAR filtering
     lidar_min_distance: int = 60  # mm, ignore readings closer (robot body)

@@ -5,6 +5,8 @@ Detects colored blobs:
 - Red (pillars to pass on RIGHT)
 - Green (pillars to pass on LEFT)
 - Magenta (parking markers)
+- Orange (floor section boundary lines)
+- Blue (floor section boundary lines)
 """
 
 from __future__ import annotations
@@ -210,6 +212,8 @@ class Camera:
                 "red": (0, 0, 255),
                 "green": (0, 255, 0),
                 "magenta": (255, 0, 255),
+                "orange": (0, 165, 255),
+                "blue": (255, 0, 0),
             }
             for blob in blobs:
                 bgr = colors.get(blob.color, (255, 255, 255))
@@ -260,6 +264,12 @@ class Camera:
         elif color == "magenta":
             ml, mu = self._range("magenta")
             mask = cv2.inRange(hsv, ml, mu)
+        elif color == "orange":
+            ol, ou = self._range("orange")
+            mask = cv2.inRange(hsv, ol, ou)
+        elif color == "blue":
+            bl, bu = self._range("blue")
+            mask = cv2.inRange(hsv, bl, bu)
         else:
             return None
 
@@ -308,6 +318,12 @@ class Camera:
         if color == "green":
             return (np.array([p.green_h_min, p.green_s_min, p.green_v_min]),
                     np.array([p.green_h_max, p.green_s_max, p.green_v_max]))
+        if color == "orange":
+            return (np.array([p.orange_h_min, p.orange_s_min, p.orange_v_min]),
+                    np.array([p.orange_h_max, p.orange_s_max, p.orange_v_max]))
+        if color == "blue":
+            return (np.array([p.blue_h_min, p.blue_s_min, p.blue_v_min]),
+                    np.array([p.blue_h_max, p.blue_s_max, p.blue_v_max]))
         return (np.array([p.magenta_h_min, p.magenta_s_min, p.magenta_v_min]),
                 np.array([p.magenta_h_max, p.magenta_s_max, p.magenta_v_max]))
 
@@ -335,6 +351,16 @@ class Camera:
         ml, mu = self._range("magenta")
         mask_magenta = cv2.inRange(hsv, ml, mu)
         blobs.extend(self._find_blobs(mask_magenta, "magenta", min_area))
+
+        # Detect orange (floor lines)
+        ol, ou = self._range("orange")
+        mask_orange = cv2.inRange(hsv, ol, ou)
+        blobs.extend(self._find_blobs(mask_orange, "orange", min_area))
+
+        # Detect blue (floor lines)
+        bl, bu = self._range("blue")
+        mask_blue = cv2.inRange(hsv, bl, bu)
+        blobs.extend(self._find_blobs(mask_blue, "blue", min_area))
 
         return blobs
 

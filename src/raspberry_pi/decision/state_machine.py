@@ -115,7 +115,7 @@ class StateMachine:
         if self.state == RobotState.DONE:
             return 0, STEERING_CENTER
 
-        # Sync strategy values from runtime params
+        # Read parameters each time when called. Ensures that changed parameters are loaded.
         if self.params:
             self.wall_follow.normal_speed = self.params.auto_normal_speed
             self.avoidance.slow_speed = self.params.auto_slow_speed
@@ -128,7 +128,8 @@ class StateMachine:
             self.direction = track_map.direction
 
         # Check state transitions
-        self._check_transitions(world, track_map)
+        blocking_angle = self.params.blocking_angle if self.params else 35.0
+        self._check_transitions(world, track_map, blocking_angle)
 
         # Execute current state via strategy
         if self.state == RobotState.WALL_FOLLOW:
@@ -166,17 +167,17 @@ class StateMachine:
 
         return 0, STEERING_CENTER
 
-    def _check_transitions(self, world: WorldState, track_map: TrackMap) -> None:
+    def _check_transitions(self, world: WorldState, track_map: TrackMap, blocking_angle: float) -> None:
         """Check and execute state transitions."""
 
         if self.state == RobotState.WALL_FOLLOW:
             # Priority 1: Pillar detected
-            if world.blocking_pillar:
+            p = world.blocking_pillar(blocking_angle)
+            if p:
                 self.state = RobotState.AVOID_PILLAR
-                self._avoiding_pillar = world.blocking_pillar.color
+                self._avoiding_pillar = p.color
                 self._avoid_phase = 0
                 self._avoid_frames = 0
-                p = world.blocking_pillar
                 logger.info(
                     f"Transition: WALL_FOLLOW -> AVOID_PILLAR "
                     f"({p.color} dist={p.distance:.0f}mm angle={p.angle:.1f}°)"
@@ -194,6 +195,15 @@ class StateMachine:
                     self.parking.reset()
                 logger.info("Transition: WALL_FOLLOW -> PARKING")
 
+            # Check if line counting detected a new lap (even between corners)
+            line_laps = track_map.line_lap_count
+            if line_laps > self.lap_count:
+                self.lap_count = line_laps
+                logger.info(f"Lap {self.lap_count} complete (from line detection)")
+                if self.lap_count >= self.target_laps:
+                    self.state = RobotState.DONE
+                    logger.info("Race complete!")
+
         elif self.state == RobotState.AVOID_PILLAR:
             self._avoid_frames += 1
             # Stay in avoidance for minimum frames to actually complete the maneuver
@@ -207,12 +217,12 @@ class StateMachine:
 
         elif self.state == RobotState.CORNER:
             # Pillar overrides corner (higher priority)
-            if world.blocking_pillar:
+            p = world.blocking_pillar(blocking_angle)
+            if p:
                 self.state = RobotState.AVOID_PILLAR
-                self._avoiding_pillar = world.blocking_pillar.color
+                self._avoiding_pillar = p.color
                 self._avoid_phase = 0
                 self._avoid_frames = 0
-                p = world.blocking_pillar
                 logger.info(
                     f"Transition: CORNER -> AVOID_PILLAR "
                     f"({p.color} dist={p.distance:.0f}mm angle={p.angle:.1f}°)"
@@ -220,10 +230,16 @@ class StateMachine:
             # Return to wall follow when corner cleared
             elif not world.is_corner_approaching:
                 self.state = RobotState.WALL_FOLLOW
-                # Check if we completed a lap (counted by 4 corners)
-                if track_map.corner_count > 0 and track_map.corner_count % 4 == 0:
-                    self.lap_count = track_map.corner_count // 4
-                    logger.info(f"Lap {self.lap_count} complete")
+                # Lap count: max of corner-based and line-based
+                corner_laps = track_map.corner_count // 4 if track_map.corner_count > 0 else 0
+                line_laps = track_map.line_lap_count
+                new_lap_count = max(corner_laps, line_laps)
+                if new_lap_count > self.lap_count:
+                    self.lap_count = new_lap_count
+                    logger.info(
+                        f"Lap {self.lap_count} complete "
+                        f"(corners={corner_laps}, lines={line_laps})"
+                    )
                     if self.lap_count >= self.target_laps:
                         self.state = RobotState.DONE
                         logger.info("Race complete!")

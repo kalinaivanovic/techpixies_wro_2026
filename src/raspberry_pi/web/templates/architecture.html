@@ -1393,33 +1393,41 @@
             });
         }
 
-        // Combined drive: left/right include forward speed from slider
-        function mcForward()  { mcDrive(parseInt(mcSpeedSlider.value), MC_STEER_CENTER); }
-        function mcBackward() { mcDrive(-parseInt(mcSpeedSlider.value), MC_STEER_CENTER); }
-        function mcLeft()     { mcDrive(parseInt(mcSpeedSlider.value), MC_STEER_LEFT); }
-        function mcRight()    { mcDrive(parseInt(mcSpeedSlider.value), MC_STEER_RIGHT); }
         function mcRelease()  { mcDrive(0, MC_STEER_CENTER); }
 
-        // Bind direction buttons — use global mouseup to avoid mouseleave issues
-        let mcButtonActive = false;
-        function bindButton(id, pressFn) {
+        // Multi-touch support: track which buttons are held (mirrors keysDown for keyboard)
+        const touchesDown = {};
+
+        function mcSendFromTouches() {
+            const spd = parseInt(mcSpeedSlider.value);
+            let speed = 0, steer = MC_STEER_CENTER;
+            if (touchesDown['btn-fwd'])   speed = spd;
+            if (touchesDown['btn-bwd'])   speed = -spd;
+            if (touchesDown['btn-left'])  steer = MC_STEER_LEFT;
+            if (touchesDown['btn-right']) steer = MC_STEER_RIGHT;
+            // If only left/right with no up/down, still drive forward
+            if (speed === 0 && steer !== MC_STEER_CENTER) speed = spd;
+            mcDrive(speed, steer);
+        }
+
+        function bindButton(id) {
             const el = document.getElementById(id);
-            el.addEventListener('mousedown', (e) => { e.preventDefault(); mcButtonActive = true; pressFn(); });
-            el.addEventListener('touchstart', (e) => { e.preventDefault(); mcButtonActive = true; pressFn(); });
-            el.addEventListener('touchend', (e) => { e.preventDefault(); mcButtonActive = false; mcRelease(); });
-            el.addEventListener('touchcancel', (e) => { e.preventDefault(); mcButtonActive = false; mcRelease(); });
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); touchesDown[id] = true; mcSendFromTouches(); });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); delete touchesDown[id]; mcSendFromTouches(); });
+            el.addEventListener('touchcancel', (e) => { e.preventDefault(); delete touchesDown[id]; mcSendFromTouches(); });
+            el.addEventListener('mousedown', (e) => { e.preventDefault(); touchesDown[id] = true; mcSendFromTouches(); });
         }
         // Global mouseup catches release even if cursor moved off button
         document.addEventListener('mouseup', () => {
-            if (mcButtonActive) {
-                mcButtonActive = false;
-                mcRelease();
+            if (Object.keys(touchesDown).length) {
+                for (const k in touchesDown) delete touchesDown[k];
+                mcSendFromTouches();
             }
         });
-        bindButton('btn-fwd', mcForward);
-        bindButton('btn-bwd', mcBackward);
-        bindButton('btn-left', mcLeft);
-        bindButton('btn-right', mcRight);
+        bindButton('btn-fwd');
+        bindButton('btn-bwd');
+        bindButton('btn-left');
+        bindButton('btn-right');
 
         function openManualControl() {
             pauseBackgroundStreams();

@@ -44,7 +44,7 @@ class Pillar:
         """Which side to pass: RED = right, GREEN = left."""
         return "right" if self.color == "red" else "left"
 
-    def is_blocking(self, angle_threshold: float = 30.0) -> bool:
+    def is_blocking(self, angle_threshold: float = 35.0) -> bool:
         """Check if pillar is roughly ahead (needs avoidance)."""
         return abs(self.angle) < angle_threshold
 
@@ -73,6 +73,14 @@ class WorldState:
     # Parking marker detection (distance in mm, None if not visible)
     parking_marker: float | None = None
 
+    # Floor line detection (orange/blue section boundary lines)
+    floor_line: str | None = None  # "orange" or "blue" if line visible in lower frame
+
+    @property
+    def is_floor_line_visible(self) -> bool:
+        """Check if a floor line is visible."""
+        return self.floor_line is not None
+
     @property
     def corridor_width(self) -> float | None:
         """Corridor width from wall info."""
@@ -90,10 +98,9 @@ class WorldState:
             return None
         return min(self.pillars, key=lambda p: p.distance)
 
-    @property
-    def blocking_pillar(self) -> Pillar | None:
+    def blocking_pillar(self, angle_threshold: float = 35.0) -> Pillar | None:
         """Get pillar that requires immediate avoidance."""
-        blocking = [p for p in self.pillars if p.is_blocking()]
+        blocking = [p for p in self.pillars if p.is_blocking(angle_threshold)]
         if not blocking:
             return None
         return min(blocking, key=lambda p: p.distance)

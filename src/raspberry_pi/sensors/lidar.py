@@ -34,7 +34,7 @@ class LidarCluster:
     area_px: int  # Pixel area in image
     bbox_tl: tuple[int, int]  # Bounding box top-left (x, y) in pixels
     bbox_br: tuple[int, int]  # Bounding box bottom-right (x, y) in pixels
-    centroid_px: tuple[int, int]  # Centroid (x, y) in pixels
+    centroid_px: tuple[int, int]  # Centroid (x, y) in pixels (težište)
 
 
 class Lidar:
@@ -386,14 +386,8 @@ class Lidar:
 
                 # Full rotation: publish averaged scan
                 if angle == 0 and len(current_scan) > 180:
-                    averaged = {
-                        a: sum(d) / len(d)
-                        for a, d in current_scan.items()
-                    }
-                    avg_quality = {
-                        a: sum(q) / len(q)
-                        for a, q in current_quality.items()
-                    }
+                    averaged = {a: sum(d) / len(d) for a, d in current_scan.items()}
+                    avg_quality = {a: sum(q) / len(q) for a, q in current_quality.items()}
 
                     with self._lock:
                         self._scan = averaged

@@ -166,7 +166,7 @@ class Controller:
 
     async def _control_loop(self):
         """Main control loop."""
-        period = 1.0 / CONTROL_LOOP_HZ
+        period = 1.0 / CONTROL_LOOP_HZ #T=1/f (ms)
 
         while self._running:
             loop_start = asyncio.get_event_loop().time()
@@ -200,7 +200,7 @@ class Controller:
             # Maintain loop rate
             self._loop_count += 1
             elapsed = asyncio.get_event_loop().time() - loop_start
-            sleep_time = max(0, period - elapsed)
+            sleep_time = max(0, period - elapsed) #Make it run evenly if we spared time, but don't let it be negative if we are behind schedule.
             await asyncio.sleep(sleep_time)
 
             # Log stats periodically

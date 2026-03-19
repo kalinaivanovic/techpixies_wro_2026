@@ -84,6 +84,9 @@ class SensorFusion:
         # Detect parking marker
         parking_marker = self._detect_parking(blobs, scan)
 
+        # Detect floor line (orange/blue section boundary)
+        floor_line = self._detect_floor_line(blobs)
+
         return WorldState(
             timestamp=time.time(),
             encoder_pos=encoder,
@@ -91,6 +94,7 @@ class SensorFusion:
             pillars=pillars,
             corner_ahead=corner_ahead,
             parking_marker=parking_marker,
+            floor_line=floor_line,
         )
 
     def _average_distance(self, scan: dict[int, float], center: int, window: int = 5) -> float | None:
@@ -157,6 +161,21 @@ class SensorFusion:
             self._last_pillar_count = len(pillars)
 
         return pillars
+
+    def _detect_floor_line(self, blobs: list[ColorBlob]) -> str | None:
+        """Detect orange/blue floor line in bottom portion of frame."""
+        line_blobs = [
+            b for b in blobs
+            if b.color in ("orange", "blue")
+            and b.y > self.camera.height * self.camera.params.line_y_fraction
+            and b.area >= self.camera.params.line_min_contour_area
+        ]
+        if not line_blobs:
+            return None
+
+        # Return color of largest qualifying blob
+        largest = max(line_blobs, key=lambda b: b.area)
+        return largest.color
 
     def _detect_parking(self, blobs: list[ColorBlob], scan: dict[int, float]) -> float | None:
         """Detect parking marker (magenta color)."""

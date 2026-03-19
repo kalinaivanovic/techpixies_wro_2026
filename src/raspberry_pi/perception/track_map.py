@@ -74,6 +74,13 @@ class TrackMap:
         self.parking_zone: tuple[int, int] | None = None
         self.lap_length: int | None = None
 
+        # Line crossing tracking
+        self.section_count: int = 0  # 4 = 1 lap
+        self.line_direction: str | None = None  # "CW" or "CCW" from line order
+        self._last_line_color: str | None = None
+        self._last_line_encoder: int = -1000
+        self._line_pair_first: str | None = None  # First color of current pair
+
         # Mapping state
         self._first_lap = True
         self._lap_start: int | None = None
@@ -89,8 +96,17 @@ class TrackMap:
     def corner_count(self) -> int:
         return len(self.corners)
 
+    @property
+    def line_lap_count(self) -> int:
+        """Laps completed according to line crossings."""
+        return self.section_count // 4
+
     def update(self, world: WorldState) -> None:
-        """Update map with current perception. Call each frame during lap 1."""
+        """Update map with current perception. Call each frame."""
+        # Line tracking runs on ALL laps (needed for lap counting)
+        self._update_lines(world)
+
+        # Mapping-specific updates only run during first lap
         if not self._first_lap:
             return
 
@@ -107,6 +123,12 @@ class TrackMap:
             self.direction = "CW" if world.corner_ahead == "RIGHT" else "CCW"
             logger.info(f"TrackMap: Direction = {self.direction}")
 
+        # Cross-validate direction from lines vs corners
+        if self.line_direction and self.direction and self.line_direction != self.direction:
+            logger.warning(
+                f"TrackMap: Direction mismatch! Corner={self.direction} Lines={self.line_direction}"
+            )
+
         # Record corners
         self._update_corners(world)
 
@@ -122,6 +144,47 @@ class TrackMap:
         # Check lap completion (4 corners = 1 lap)
         if len(self.corners) >= 4 and self.lap_length is None:
             self._finalize_lap(encoder)
+
+    def _update_lines(self, world: WorldState) -> None:
+        """Track orange/blue line crossings for section counting."""
+        color = world.floor_line
+        encoder = world.encoder_pos
+
+        if color is None:
+            # Gap between lines — if we saw a single color, it was a partial sighting
+            # Reset pair tracker only after enough encoder distance (moved past the lines)
+            if (self._line_pair_first is not None
+                    and abs(encoder - self._last_line_encoder) > self.corner_tolerance):
+                self._line_pair_first = None
+            return
+
+        # Dedup: skip if same color seen recently (still on same line)
+        if color == self._last_line_color and abs(encoder - self._last_line_encoder) < self.corner_tolerance:
+            return
+
+        if self._line_pair_first is None:
+            # First color of a new pair
+            self._line_pair_first = color
+        elif color != self._line_pair_first:
+            # Second color — section boundary crossed!
+            self.section_count += 1
+            logger.info(
+                f"TrackMap: Section boundary #{self.section_count} "
+                f"({self._line_pair_first} -> {color}) at enc={encoder}"
+            )
+
+            # Direction from first pair
+            if self.line_direction is None:
+                if self._line_pair_first == "orange":
+                    self.line_direction = "CW"
+                else:
+                    self.line_direction = "CCW"
+                logger.info(f"TrackMap: Line direction = {self.line_direction}")
+
+            self._line_pair_first = None
+
+        self._last_line_color = color
+        self._last_line_encoder = encoder
 
     def _update_corners(self, world: WorldState) -> None:
         if world.corner_ahead is None:
