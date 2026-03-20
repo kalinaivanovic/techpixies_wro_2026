@@ -231,8 +231,11 @@ class StateMachine:
                     f"({p.color} dist={p.distance:.0f}mm angle={p.angle:.1f}°)"
                 )
 
-            # Priority 2: Corner detected (suppressed briefly after pillar avoidance)
-            elif self._corner_suppressed_frames <= 0 and world.is_corner_approaching:
+            # Priority 2: Corner detected
+            # Suppressed after pillar avoidance OR if pillars still visible nearby
+            elif (self._corner_suppressed_frames <= 0
+                  and not world.blocking_pillar(blocking_angle)
+                  and world.is_corner_approaching):
                 self.state = RobotState.CORNER
                 self._corner_frames = 0
                 self._recovery_attempts = 0
@@ -276,7 +279,7 @@ class StateMachine:
                 logger.info(f"Transition: AVOID_PILLAR -> WALL_FOLLOW (after {self._avoid_frames} frames)")
                 self.state = RobotState.WALL_FOLLOW
                 self._avoiding_pillar = None
-                self._corner_suppressed_frames = 25  # Suppress corner for ~0.5s
+                self._corner_suppressed_frames = 75  # Suppress corner for ~1.5s after pillar
 
         elif self.state == RobotState.CORNER:
             self._corner_frames += 1
