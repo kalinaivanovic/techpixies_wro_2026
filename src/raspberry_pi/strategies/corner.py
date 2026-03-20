@@ -75,17 +75,11 @@ class LidarCornerDetection(CornerStrategy):
         if left is None and right is None:
             return None
         if left is None:
-            result = "RIGHT"
-            logger.info(f"CORNER DETECT: front={front:.0f} left=None right={right:.0f} → {result}")
-            return result
+            return "RIGHT"
         if right is None:
-            result = "LEFT"
-            logger.info(f"CORNER DETECT: front={front:.0f} left={left:.0f} right=None → {result}")
-            return result
+            return "LEFT"
 
-        result = "LEFT" if left > right else "RIGHT"
-        logger.info(f"CORNER DETECT: front={front:.0f} left={left:.0f} right={right:.0f} → {result}")
-        return result
+        return "LEFT" if left > right else "RIGHT"
 
     def compute(self, direction: str, world: WorldState) -> tuple[int, int]:
         if direction == "LEFT":

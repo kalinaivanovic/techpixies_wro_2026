@@ -228,9 +228,20 @@ class StateMachine:
             elif world.is_corner_approaching:
                 self.state = RobotState.CORNER
                 self._corner_frames = 0
-                self._corner_direction = world.corner_ahead
                 self._recovery_attempts = 0
-                logger.info(f"Transition: WALL_FOLLOW -> CORNER ({world.corner_ahead})")
+                # Use track direction to determine corner direction (more reliable)
+                # CW track → all corners are RIGHT, CCW → all LEFT
+                if self.direction == "CW":
+                    self._corner_direction = "RIGHT"
+                elif self.direction == "CCW":
+                    self._corner_direction = "LEFT"
+                else:
+                    # Direction not yet known — use detector's guess
+                    self._corner_direction = world.corner_ahead
+                logger.info(
+                    f"Transition: WALL_FOLLOW -> CORNER "
+                    f"({self._corner_direction}, track={self.direction}, detector={world.corner_ahead})"
+                )
 
             # Priority 3: Parking (lap 3 + parking visible)
             elif self.lap_count >= 3 and world.is_parking_visible:
