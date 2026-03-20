@@ -54,13 +54,15 @@ class LidarCornerDetection(CornerStrategy):
     Direction is determined by which side has more open space.
     """
 
-    def __init__(self, threshold: int = 400, slow_speed: int = 35, steering_center: int = 90, turn_offset: int = 25, front_window: int = 5, side_window: int = 15):
+    def __init__(self, threshold: int = 400, slow_speed: int = 35, steering_center: int = 90, turn_offset: int = 25, front_window: int = 5, side_window: int = 15, direction_margin: float = 100):
         self.threshold = threshold
         self.slow_speed = slow_speed
         self.steering_center = steering_center
         self.turn_offset = turn_offset
         self.front_window = front_window
         self.side_window = side_window
+        self.direction_margin = direction_margin  # mm — left/right must differ by this much
+        self._last_direction: str | None = None  # sticky direction to avoid flipping
 
     def detect(self, scan: dict[int, float]) -> str | None:
         front = self._average_distance(scan, 0, self.front_window)
@@ -75,11 +77,20 @@ class LidarCornerDetection(CornerStrategy):
         if left is None and right is None:
             return None
         if left is None:
+            self._last_direction = "RIGHT"
             return "RIGHT"
         if right is None:
+            self._last_direction = "LEFT"
             return "LEFT"
 
-        return "LEFT" if left > right else "RIGHT"
+        diff = left - right
+        if abs(diff) < self.direction_margin:
+            # Too close to call — use last known direction or default RIGHT
+            return self._last_direction or "RIGHT"
+
+        result = "LEFT" if diff > 0 else "RIGHT"
+        self._last_direction = result
+        return result
 
     def compute(self, direction: str, world: WorldState) -> tuple[int, int]:
         if direction == "LEFT":
