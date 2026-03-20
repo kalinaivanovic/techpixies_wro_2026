@@ -409,25 +409,37 @@
                     <!-- Corner control -->
                     <div class="box" style="cursor:pointer;border:2px solid #e0e0e0" onclick="toggleCornerControl()">
                         <div class="box-label">Corner</div>
-                        <div class="box-value" id="corner-display" style="font-size:1.1rem">500 / 25 / 35</div>
-                        <div style="font-size:0.65rem;color:#aaa;margin-top:4px">dist / turn / speed &middot; click to edit</div>
+                        <div class="box-value" id="corner-display" style="font-size:1.1rem">500 / 1200</div>
+                        <div style="font-size:0.65rem;color:#aaa;margin-top:4px">enter / exit (hysteresis) &middot; click to edit</div>
                     </div>
                     <div id="corner-control-panel" style="display:none;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:14px">
                         <div style="margin-bottom:10px">
-                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Threshold: <strong id="corner-threshold-val">500</strong>mm</label>
-                            <input type="range" id="corner-threshold-slider" min="200" max="1000" step="50" value="500"
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Enter Threshold: <strong id="corner-threshold-val">500</strong>mm</label>
+                            <input type="range" id="corner-threshold-slider" min="200" max="1500" step="50" value="500"
+                                style="width:100%;margin-top:4px"
+                                oninput="onCornerSlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Exit Threshold: <strong id="corner-exit-val">1200</strong>mm</label>
+                            <input type="range" id="corner-exit-slider" min="500" max="2500" step="50" value="1200"
                                 style="width:100%;margin-top:4px"
                                 oninput="onCornerSlider()">
                         </div>
                         <div style="margin-bottom:10px">
                             <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Turn Offset: <strong id="corner-turn-val">25</strong>&deg;</label>
-                            <input type="range" id="corner-turn-slider" min="10" max="60" value="25"
+                            <input type="range" id="corner-turn-slider" min="10" max="80" value="25"
                                 style="width:100%;margin-top:4px"
                                 oninput="onCornerSlider()">
                         </div>
                         <div style="margin-bottom:10px">
                             <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Corner Speed: <strong id="corner-speed-val">35</strong></label>
                             <input type="range" id="corner-speed-slider" min="10" max="80" value="35"
+                                style="width:100%;margin-top:4px"
+                                oninput="onCornerSlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Min Frames: <strong id="corner-frames-val">15</strong></label>
+                            <input type="range" id="corner-frames-slider" min="5" max="60" value="15"
                                 style="width:100%;margin-top:4px"
                                 oninput="onCornerSlider()">
                         </div>
@@ -1018,9 +1030,9 @@
                 document.getElementById('avoid-steer-display').textContent =
                     data.avoid_steer_min + ' / ' + data.avoid_steer_max;
             }
-            if (data.corner_threshold !== undefined && data.corner_turn_offset !== undefined && data.corner_speed !== undefined) {
+            if (data.corner_threshold !== undefined && data.corner_exit_threshold !== undefined) {
                 document.getElementById('corner-display').textContent =
-                    data.corner_threshold + ' / ' + data.corner_turn_offset + ' / ' + data.corner_speed;
+                    data.corner_threshold + ' / ' + data.corner_exit_threshold;
             }
         }).catch(() => {});
 
@@ -1076,17 +1088,18 @@
             const panel = document.getElementById('corner-control-panel');
             if (panel.style.display === 'none') {
                 fetch('/api/params').then(r => r.json()).then(data => {
-                    if (data.corner_threshold !== undefined) {
-                        document.getElementById('corner-threshold-slider').value = data.corner_threshold;
-                        document.getElementById('corner-threshold-val').textContent = data.corner_threshold;
-                    }
-                    if (data.corner_turn_offset !== undefined) {
-                        document.getElementById('corner-turn-slider').value = data.corner_turn_offset;
-                        document.getElementById('corner-turn-val').textContent = data.corner_turn_offset;
-                    }
-                    if (data.corner_speed !== undefined) {
-                        document.getElementById('corner-speed-slider').value = data.corner_speed;
-                        document.getElementById('corner-speed-val').textContent = data.corner_speed;
+                    const fields = {
+                        'corner-threshold': 'corner_threshold',
+                        'corner-exit': 'corner_exit_threshold',
+                        'corner-turn': 'corner_turn_offset',
+                        'corner-speed': 'corner_speed',
+                        'corner-frames': 'corner_min_frames',
+                    };
+                    for (const [id, param] of Object.entries(fields)) {
+                        if (data[param] !== undefined) {
+                            document.getElementById(id + '-slider').value = data[param];
+                            document.getElementById(id + '-val').textContent = data[param];
+                        }
                     }
                 }).catch(() => {});
                 panel.style.display = '';
@@ -1095,29 +1108,38 @@
             }
         }
 
+        function _readCornerParams() {
+            return {
+                corner_threshold: parseInt(document.getElementById('corner-threshold-slider').value),
+                corner_exit_threshold: parseInt(document.getElementById('corner-exit-slider').value),
+                corner_turn_offset: parseInt(document.getElementById('corner-turn-slider').value),
+                corner_speed: parseInt(document.getElementById('corner-speed-slider').value),
+                corner_min_frames: parseInt(document.getElementById('corner-frames-slider').value),
+            };
+        }
+
         function onCornerSlider() {
-            const threshold = parseInt(document.getElementById('corner-threshold-slider').value);
-            const turn = parseInt(document.getElementById('corner-turn-slider').value);
-            const speed = parseInt(document.getElementById('corner-speed-slider').value);
-            document.getElementById('corner-threshold-val').textContent = threshold;
-            document.getElementById('corner-turn-val').textContent = turn;
-            document.getElementById('corner-speed-val').textContent = speed;
-            document.getElementById('corner-display').textContent = threshold + ' / ' + turn + ' / ' + speed;
+            const p = _readCornerParams();
+            document.getElementById('corner-threshold-val').textContent = p.corner_threshold;
+            document.getElementById('corner-exit-val').textContent = p.corner_exit_threshold;
+            document.getElementById('corner-turn-val').textContent = p.corner_turn_offset;
+            document.getElementById('corner-speed-val').textContent = p.corner_speed;
+            document.getElementById('corner-frames-val').textContent = p.corner_min_frames;
+            document.getElementById('corner-display').textContent = p.corner_threshold + ' / ' + p.corner_exit_threshold;
             fetch('/api/params', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({corner_threshold: threshold, corner_turn_offset: turn, corner_speed: speed})
+                body: JSON.stringify(p)
             }).catch(() => {});
         }
 
         function saveCornerParams(btn) {
-            const threshold = parseInt(document.getElementById('corner-threshold-slider').value);
-            const turn = parseInt(document.getElementById('corner-turn-slider').value);
-            const speed = parseInt(document.getElementById('corner-speed-slider').value);
+            const p = _readCornerParams();
+            p._save = true;
             fetch('/api/params', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({corner_threshold: threshold, corner_turn_offset: turn, corner_speed: speed, _save: true})
+                body: JSON.stringify(p)
             }).then(() => {
                 btn.textContent = 'Saved!';
                 btn.style.background = '#00b894';

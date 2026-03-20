@@ -95,9 +95,16 @@ class Parameters:
     blocking_angle: float = 35.0  # Degrees from center — pillar within this is "blocking"
 
     # Corner detection and handling
-    corner_threshold: int = 500  # mm — front wall distance to trigger corner
+    corner_threshold: int = 500  # mm — front wall distance to enter corner state
+    corner_exit_threshold: int = 1200  # mm — front distance to exit corner (hysteresis)
     corner_turn_offset: int = 25  # degrees offset from center (90 ± this)
     corner_speed: int = 35  # speed during corner turn
+    corner_min_frames: int = 15  # minimum frames to stay in corner (safety net)
+
+    # Recovery (reverse-and-retry when stuck in corner)
+    recovery_trigger_frames: int = 75  # frames in CORNER before triggering recovery (~1.5s)
+    recovery_reverse_frames: int = 25  # frames to reverse (~0.5s)
+    recovery_reverse_speed: int = 40  # reverse speed (0-100)
 
     # LIDAR filtering
     lidar_min_distance: int = 60  # mm, ignore readings closer (robot body)

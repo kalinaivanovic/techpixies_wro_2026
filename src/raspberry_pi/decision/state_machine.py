@@ -31,6 +31,7 @@ class RobotState(Enum):
     WALL_FOLLOW = auto()
     AVOID_PILLAR = auto()
     CORNER = auto()
+    RECOVERY = auto()
     PARKING = auto()
     DONE = auto()
 
@@ -86,6 +87,19 @@ class StateMachine:
         self._clear_angle = 65.0  # degrees — must be well past 200mm robot body
         self._clear_distance = 600.0  # mm — or far enough to not matter
 
+        # For corner state
+        self._corner_frames = 0
+        self._min_corner_frames = 15  # Safety minimum frames in corner
+        self._corner_exit_threshold = 1200  # mm — front must be this clear to exit
+        self._corner_direction: str | None = None  # Remember turn direction
+
+        # For recovery state (reverse-and-retry)
+        self._recovery_frames = 0
+        self._recovery_reverse_frames = 25  # How long to reverse
+        self._recovery_trigger_frames = 75  # Corner frames before recovery triggers
+        self._recovery_reverse_speed = 40
+        self._recovery_attempts = 0  # Count retries for this corner
+
     def start(self):
         """Start the race."""
         self.state = RobotState.WALL_FOLLOW
@@ -124,6 +138,11 @@ class StateMachine:
             self.corner.slow_speed = self.params.corner_speed
             self.corner.turn_offset = self.params.corner_turn_offset
             self.corner.threshold = self.params.corner_threshold
+            self._corner_exit_threshold = self.params.corner_exit_threshold
+            self._min_corner_frames = self.params.corner_min_frames
+            self._recovery_trigger_frames = self.params.recovery_trigger_frames
+            self._recovery_reverse_frames = self.params.recovery_reverse_frames
+            self._recovery_reverse_speed = self.params.recovery_reverse_speed
 
         # Update direction from track map
         if self.direction is None and track_map.direction:
@@ -159,8 +178,17 @@ class StateMachine:
             return speed, steering
 
         elif self.state == RobotState.CORNER:
-            direction = world.corner_ahead or "RIGHT"
+            direction = self._corner_direction or world.corner_ahead or "RIGHT"
             return self.corner.compute(direction, world)
+
+        elif self.state == RobotState.RECOVERY:
+            # Reverse with same steering direction to back away from wall
+            # Same direction while reversing swings front AWAY from the ahead wall
+            if self._corner_direction == "LEFT":
+                steering = STEERING_CENTER - self.corner.turn_offset
+            else:
+                steering = STEERING_CENTER + self.corner.turn_offset
+            return -self._recovery_reverse_speed, steering
 
         elif self.state == RobotState.PARKING:
             if self.parking is not None:
@@ -188,6 +216,9 @@ class StateMachine:
             # Priority 2: Corner detected
             elif world.is_corner_approaching:
                 self.state = RobotState.CORNER
+                self._corner_frames = 0
+                self._corner_direction = world.corner_ahead
+                self._recovery_attempts = 0
                 logger.info(f"Transition: WALL_FOLLOW -> CORNER ({world.corner_ahead})")
 
             # Priority 3: Parking (lap 3 + parking visible)
@@ -218,6 +249,7 @@ class StateMachine:
                 self._avoiding_pillar = None
 
         elif self.state == RobotState.CORNER:
+            self._corner_frames += 1
             # Pillar overrides corner (higher priority)
             p = world.blocking_pillar(blocking_angle)
             if p:
@@ -229,9 +261,22 @@ class StateMachine:
                     f"Transition: CORNER -> AVOID_PILLAR "
                     f"({p.color} dist={p.distance:.0f}mm angle={p.angle:.1f}°)"
                 )
-            # Return to wall follow when corner cleared
-            elif not world.is_corner_approaching:
+            # Stuck too long? Trigger recovery (reverse-and-retry)
+            elif self._corner_frames >= self._recovery_trigger_frames and not self._is_corner_cleared(world):
+                self.state = RobotState.RECOVERY
+                self._recovery_frames = 0
+                self._recovery_attempts += 1
+                logger.info(
+                    f"Transition: CORNER -> RECOVERY "
+                    f"(stuck after {self._corner_frames} frames, attempt {self._recovery_attempts})"
+                )
+            # Must stay minimum frames (safety net against LIDAR noise)
+            elif self._corner_frames < self._min_corner_frames:
+                return
+            # Hysteresis: only exit when front is clearly open (straight path ahead)
+            elif self._is_corner_cleared(world):
                 self.state = RobotState.WALL_FOLLOW
+                self._recovery_attempts = 0  # Reset for next corner
                 # Lap count: max of corner-based and line-based
                 corner_laps = track_map.corner_count // 4 if track_map.corner_count > 0 else 0
                 line_laps = track_map.line_lap_count
@@ -247,10 +292,35 @@ class StateMachine:
                         logger.info("Race complete!")
                 logger.info("Transition: CORNER -> WALL_FOLLOW")
 
+        elif self.state == RobotState.RECOVERY:
+            self._recovery_frames += 1
+            # Escalate: more reverse time on repeated attempts
+            reverse_needed = self._recovery_reverse_frames * min(self._recovery_attempts, 3)
+            if self._recovery_frames >= reverse_needed:
+                # Done reversing — go back to CORNER and try again
+                self.state = RobotState.CORNER
+                self._corner_frames = 0  # Reset so it gets a fresh attempt
+                logger.info(
+                    f"Transition: RECOVERY -> CORNER "
+                    f"(reversed {self._recovery_frames} frames, attempt {self._recovery_attempts})"
+                )
+
         elif self.state == RobotState.PARKING:
             if self.parking is not None and self.parking.is_complete():
                 self.state = RobotState.DONE
                 logger.info("Transition: PARKING -> DONE")
+
+    def _is_corner_cleared(self, world: WorldState) -> bool:
+        """Check if the robot has completed the corner turn.
+
+        Uses hysteresis: entered corner when front < corner_threshold,
+        only exits when front > corner_exit_threshold. This ensures
+        the robot has fully turned to face the next straight section.
+        """
+        front = world.walls.front_distance
+        if front is None:
+            return False  # Can't see front wall — still turning
+        return front > self._corner_exit_threshold
 
     def _find_avoiding_pillar(self, world: WorldState):
         """Find the pillar we're currently avoiding (by color).
