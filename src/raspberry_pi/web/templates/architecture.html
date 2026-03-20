@@ -448,6 +448,36 @@
                             background:#6c5ce7;color:#fff;font-size:0.8rem;cursor:pointer;
                         ">Save</button>
                     </div>
+                    <!-- Recovery control -->
+                    <div class="box" style="cursor:pointer;border:2px solid #e0e0e0" onclick="toggleRecoveryControl()">
+                        <div class="box-label">Recovery</div>
+                        <div class="box-value" id="recovery-display" style="font-size:1.1rem">50 / 25 / 40</div>
+                        <div style="font-size:0.65rem;color:#aaa;margin-top:4px">trigger / reverse / speed &middot; click to edit</div>
+                    </div>
+                    <div id="recovery-control-panel" style="display:none;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:14px">
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Trigger After: <strong id="recovery-trigger-val">75</strong> frames</label>
+                            <input type="range" id="recovery-trigger-slider" min="20" max="150" step="5" value="75"
+                                style="width:100%;margin-top:4px"
+                                oninput="onRecoverySlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Reverse Frames: <strong id="recovery-reverse-val">25</strong></label>
+                            <input type="range" id="recovery-reverse-slider" min="10" max="100" step="5" value="25"
+                                style="width:100%;margin-top:4px"
+                                oninput="onRecoverySlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Reverse Speed: <strong id="recovery-speed-val">40</strong></label>
+                            <input type="range" id="recovery-speed-slider" min="20" max="100" step="5" value="40"
+                                style="width:100%;margin-top:4px"
+                                oninput="onRecoverySlider()">
+                        </div>
+                        <button onclick="saveRecoveryParams(this)" style="
+                            width:100%;padding:6px;border:none;border-radius:6px;
+                            background:#6c5ce7;color:#fff;font-size:0.8rem;cursor:pointer;
+                        ">Save</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1039,6 +1069,10 @@
                 document.getElementById('corner-display').textContent =
                     data.corner_threshold + ' / ' + data.corner_exit_threshold;
             }
+            if (data.recovery_trigger_frames !== undefined && data.recovery_reverse_frames !== undefined && data.recovery_reverse_speed !== undefined) {
+                document.getElementById('recovery-display').textContent =
+                    data.recovery_trigger_frames + ' / ' + data.recovery_reverse_frames + ' / ' + data.recovery_reverse_speed;
+            }
         }).catch(() => {});
 
         // ── Avoidance steering control ───────────────────────────
@@ -1140,6 +1174,65 @@
 
         function saveCornerParams(btn) {
             const p = _readCornerParams();
+            p._save = true;
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(p)
+            }).then(() => {
+                btn.textContent = 'Saved!';
+                btn.style.background = '#00b894';
+                setTimeout(() => { btn.textContent = 'Save'; btn.style.background = '#6c5ce7'; }, 1500);
+            }).catch(() => {});
+        }
+
+        // ── Recovery control ────────────────────────────────────
+        function toggleRecoveryControl() {
+            const panel = document.getElementById('recovery-control-panel');
+            if (panel.style.display === 'none') {
+                fetch('/api/params').then(r => r.json()).then(data => {
+                    const fields = {
+                        'recovery-trigger': 'recovery_trigger_frames',
+                        'recovery-reverse': 'recovery_reverse_frames',
+                        'recovery-speed': 'recovery_reverse_speed',
+                    };
+                    for (const [id, param] of Object.entries(fields)) {
+                        if (data[param] !== undefined) {
+                            document.getElementById(id + '-slider').value = data[param];
+                            document.getElementById(id + '-val').textContent = data[param];
+                        }
+                    }
+                }).catch(() => {});
+                panel.style.display = '';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function _readRecoveryParams() {
+            return {
+                recovery_trigger_frames: parseInt(document.getElementById('recovery-trigger-slider').value),
+                recovery_reverse_frames: parseInt(document.getElementById('recovery-reverse-slider').value),
+                recovery_reverse_speed: parseInt(document.getElementById('recovery-speed-slider').value),
+            };
+        }
+
+        function onRecoverySlider() {
+            const p = _readRecoveryParams();
+            document.getElementById('recovery-trigger-val').textContent = p.recovery_trigger_frames;
+            document.getElementById('recovery-reverse-val').textContent = p.recovery_reverse_frames;
+            document.getElementById('recovery-speed-val').textContent = p.recovery_reverse_speed;
+            document.getElementById('recovery-display').textContent =
+                p.recovery_trigger_frames + ' / ' + p.recovery_reverse_frames + ' / ' + p.recovery_reverse_speed;
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(p)
+            }).catch(() => {});
+        }
+
+        function saveRecoveryParams(btn) {
+            const p = _readRecoveryParams();
             p._save = true;
             fetch('/api/params', {
                 method: 'POST',
