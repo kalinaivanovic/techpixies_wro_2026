@@ -100,6 +100,9 @@ class StateMachine:
         self._recovery_reverse_speed = 40
         self._recovery_attempts = 0  # Count retries for this corner
 
+        # Corner suppression after pillar avoidance
+        self._corner_suppressed_frames = 0  # Countdown: skip corner detection
+
     def start(self):
         """Start the race."""
         self.state = RobotState.WALL_FOLLOW
@@ -212,6 +215,10 @@ class StateMachine:
         """Check and execute state transitions."""
 
         if self.state == RobotState.WALL_FOLLOW:
+            # Tick down corner suppression after pillar avoidance
+            if self._corner_suppressed_frames > 0:
+                self._corner_suppressed_frames -= 1
+
             # Priority 1: Pillar detected
             p = world.blocking_pillar(blocking_angle)
             if p:
@@ -224,8 +231,8 @@ class StateMachine:
                     f"({p.color} dist={p.distance:.0f}mm angle={p.angle:.1f}°)"
                 )
 
-            # Priority 2: Corner detected
-            elif world.is_corner_approaching:
+            # Priority 2: Corner detected (suppressed briefly after pillar avoidance)
+            elif self._corner_suppressed_frames <= 0 and world.is_corner_approaching:
                 self.state = RobotState.CORNER
                 self._corner_frames = 0
                 self._recovery_attempts = 0
@@ -269,6 +276,7 @@ class StateMachine:
                 logger.info(f"Transition: AVOID_PILLAR -> WALL_FOLLOW (after {self._avoid_frames} frames)")
                 self.state = RobotState.WALL_FOLLOW
                 self._avoiding_pillar = None
+                self._corner_suppressed_frames = 25  # Suppress corner for ~0.5s
 
         elif self.state == RobotState.CORNER:
             self._corner_frames += 1
