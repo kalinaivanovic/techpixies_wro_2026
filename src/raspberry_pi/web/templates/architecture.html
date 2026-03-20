@@ -518,6 +518,11 @@
 
                     <div style="width:12px"></div>
 
+                    <button id="btn-reverse-toggle" onclick="mcToggleReverse()" style="
+                        width:80px;height:80px;border:2px solid #6c5ce7;border-radius:10px;cursor:pointer;
+                        background:#f0f0f0;color:#6c5ce7;font-size:0.75rem;font-weight:bold;letter-spacing:1px;
+                    ">FWD</button>
+
                     <button onclick="mcStop()" style="
                         width:80px;height:80px;border:none;border-radius:10px;cursor:pointer;
                         background:#d63031;color:white;font-size:0.9rem;font-weight:bold;letter-spacing:1px;
@@ -1505,18 +1510,36 @@
 
         function mcRelease()  { mcDrive(0, MC_STEER_CENTER); }
 
+        // Direction toggle: FWD or REV
+        let mcReverse = false;
+
+        function mcToggleReverse() {
+            mcReverse = !mcReverse;
+            const btn = document.getElementById('btn-reverse-toggle');
+            if (mcReverse) {
+                btn.textContent = 'REV';
+                btn.style.background = '#6c5ce7';
+                btn.style.color = '#fff';
+            } else {
+                btn.textContent = 'FWD';
+                btn.style.background = '#f0f0f0';
+                btn.style.color = '#6c5ce7';
+            }
+        }
+
         // Multi-touch support: track which buttons are held (mirrors keysDown for keyboard)
         const touchesDown = {};
 
         function mcSendFromTouches() {
             const spd = parseInt(mcSpeedSlider.value);
+            const dir = mcReverse ? -1 : 1;
             let speed = 0, steer = MC_STEER_CENTER;
-            if (touchesDown['btn-fwd'])   speed = spd;
-            if (touchesDown['btn-bwd'])   speed = -spd;
+            if (touchesDown['btn-fwd'])   speed = spd * dir;
+            if (touchesDown['btn-bwd'])   speed = -spd * dir;
             if (touchesDown['btn-left'])  steer = MC_STEER_LEFT;
             if (touchesDown['btn-right']) steer = MC_STEER_RIGHT;
-            // If only left/right with no up/down, still drive forward
-            if (speed === 0 && steer !== MC_STEER_CENTER) speed = spd;
+            // If only left/right, drive in current direction
+            if (speed === 0 && steer !== MC_STEER_CENTER) speed = spd * dir;
             mcDrive(speed, steer);
         }
 
@@ -1559,13 +1582,14 @@
 
         function mcSendFromKeys() {
             const spd = parseInt(mcSpeedSlider.value);
+            const dir = mcReverse ? -1 : 1;
             let speed = 0, steer = MC_STEER_CENTER;
-            if (keysDown['ArrowUp'])    speed = spd;
-            if (keysDown['ArrowDown'])  speed = -spd;
+            if (keysDown['ArrowUp'])    speed = spd * dir;
+            if (keysDown['ArrowDown'])  speed = -spd * dir;
             if (keysDown['ArrowLeft'])  steer = MC_STEER_LEFT;
             if (keysDown['ArrowRight']) steer = MC_STEER_RIGHT;
-            // If only left/right with no up/down, still drive forward
-            if (speed === 0 && steer !== MC_STEER_CENTER) speed = spd;
+            // If only left/right, drive in current direction
+            if (speed === 0 && steer !== MC_STEER_CENTER) speed = spd * dir;
             mcDrive(speed, steer);
         }
 
@@ -1589,6 +1613,9 @@
             } else if (e.key === ' ') {
                 e.preventDefault();
                 mcStop();
+            } else if (e.key === 'r' || e.key === 'R') {
+                e.preventDefault();
+                mcToggleReverse();
             }
         });
 
