@@ -179,7 +179,17 @@ class StateMachine:
 
         elif self.state == RobotState.CORNER:
             direction = self._corner_direction or world.corner_ahead or "RIGHT"
-            return self.corner.compute(direction, world)
+            speed, steering = self.corner.compute(direction, world)
+            if self._corner_frames % 15 == 0:
+                front = world.walls.front_distance
+                logger.info(
+                    f"CORNER: dir={direction} steer={steering}° speed={speed} "
+                    f"front={front:.0f}mm frame={self._corner_frames}"
+                    if front else
+                    f"CORNER: dir={direction} steer={steering}° speed={speed} "
+                    f"front=None frame={self._corner_frames}"
+                )
+            return speed, steering
 
         elif self.state == RobotState.RECOVERY:
             # Reverse with same steering direction to back away from wall
