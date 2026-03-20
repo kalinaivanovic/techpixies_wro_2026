@@ -7,9 +7,12 @@ Handling: compute steering to execute the turn.
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 
 from perception.world_state import WorldState
+
+logger = logging.getLogger(__name__)
 
 
 class CornerStrategy(ABC):
@@ -72,11 +75,17 @@ class LidarCornerDetection(CornerStrategy):
         if left is None and right is None:
             return None
         if left is None:
-            return "RIGHT"
+            result = "RIGHT"
+            logger.info(f"CORNER DETECT: front={front:.0f} left=None right={right:.0f} → {result}")
+            return result
         if right is None:
-            return "LEFT"
+            result = "LEFT"
+            logger.info(f"CORNER DETECT: front={front:.0f} left={left:.0f} right=None → {result}")
+            return result
 
-        return "LEFT" if left > right else "RIGHT"
+        result = "LEFT" if left > right else "RIGHT"
+        logger.info(f"CORNER DETECT: front={front:.0f} left={left:.0f} right={right:.0f} → {result}")
+        return result
 
     def compute(self, direction: str, world: WorldState) -> tuple[int, int]:
         if direction == "LEFT":
