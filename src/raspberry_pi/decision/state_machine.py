@@ -192,12 +192,13 @@ class StateMachine:
             return speed, steering
 
         elif self.state == RobotState.RECOVERY:
-            # Reverse with same steering direction to back away from wall
-            # Same direction while reversing swings front AWAY from the ahead wall
+            # Reverse with OPPOSITE steering to back away from corner wall.
+            # If corner is RIGHT: reverse + steer LEFT → rear swings right,
+            # front pulls away from the ahead wall, creating room for next attempt.
             if self._corner_direction == "LEFT":
-                steering = STEERING_CENTER - self.corner.turn_offset
+                steering = STEERING_CENTER + self.corner.turn_offset  # steer RIGHT while reversing
             else:
-                steering = STEERING_CENTER + self.corner.turn_offset
+                steering = STEERING_CENTER - self.corner.turn_offset  # steer LEFT while reversing
             return -self._recovery_reverse_speed, steering
 
         elif self.state == RobotState.PARKING:
