@@ -401,6 +401,12 @@
                                 style="width:100%;margin-top:4px"
                                 oninput="onAvoidSlider()">
                         </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Blocking Angle: <strong id="avoid-blocking-val">35</strong>&deg;</label>
+                            <input type="range" id="avoid-blocking-slider" min="15" max="70" value="35"
+                                style="width:100%;margin-top:4px"
+                                oninput="onAvoidSlider()">
+                        </div>
                         <button onclick="saveAvoidParams(this)" style="
                             width:100%;padding:6px;border:none;border-radius:6px;
                             background:#6c5ce7;color:#fff;font-size:0.8rem;cursor:pointer;
@@ -1088,6 +1094,10 @@
                         document.getElementById('avoid-max-slider').value = data.avoid_steer_max;
                         document.getElementById('avoid-max-val').textContent = data.avoid_steer_max;
                     }
+                    if (data.blocking_angle !== undefined) {
+                        document.getElementById('avoid-blocking-slider').value = data.blocking_angle;
+                        document.getElementById('avoid-blocking-val').textContent = data.blocking_angle;
+                    }
                 }).catch(() => {});
                 panel.style.display = '';
             } else {
@@ -1098,23 +1108,26 @@
         function onAvoidSlider() {
             const min = parseInt(document.getElementById('avoid-min-slider').value);
             const max = parseInt(document.getElementById('avoid-max-slider').value);
+            const blocking = parseInt(document.getElementById('avoid-blocking-slider').value);
             document.getElementById('avoid-min-val').textContent = min;
             document.getElementById('avoid-max-val').textContent = max;
+            document.getElementById('avoid-blocking-val').textContent = blocking;
             document.getElementById('avoid-steer-display').textContent = min + ' / ' + max;
             fetch('/api/params', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({avoid_steer_min: min, avoid_steer_max: max})
+                body: JSON.stringify({avoid_steer_min: min, avoid_steer_max: max, blocking_angle: blocking})
             }).catch(() => {});
         }
 
         function saveAvoidParams(btn) {
             const min = parseInt(document.getElementById('avoid-min-slider').value);
             const max = parseInt(document.getElementById('avoid-max-slider').value);
+            const blocking = parseInt(document.getElementById('avoid-blocking-slider').value);
             fetch('/api/params', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({avoid_steer_min: min, avoid_steer_max: max, _save: true})
+                body: JSON.stringify({avoid_steer_min: min, avoid_steer_max: max, blocking_angle: blocking, _save: true})
             }).then(() => {
                 btn.textContent = 'Saved!';
                 btn.style.background = '#00b894';
