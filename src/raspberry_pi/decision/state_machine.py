@@ -290,11 +290,13 @@ class StateMachine:
                 self._recovery_frames = 0
                 self._recovery_attempts += 1
                 self._recovery_return_state = RobotState.AVOID_PILLAR
-                # Reverse direction: opposite of avoidance steering
+                # Set direction to SAME as avoidance steering, so RECOVERY inverts it
+                # RED → avoidance steers LEFT → set LEFT → RECOVERY steers RIGHT
+                # GREEN → avoidance steers RIGHT → set RIGHT → RECOVERY steers LEFT
                 if self._avoiding_pillar == "red":
-                    self._corner_direction = "RIGHT"  # was steering left, reverse right
+                    self._corner_direction = "LEFT"
                 else:
-                    self._corner_direction = "LEFT"  # was steering right, reverse left
+                    self._corner_direction = "RIGHT"
                 logger.info(
                     f"Transition: AVOID_PILLAR -> RECOVERY "
                     f"(wall at {front:.0f}mm, attempt {self._recovery_attempts})"
