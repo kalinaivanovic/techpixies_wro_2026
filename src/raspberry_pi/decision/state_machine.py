@@ -103,6 +103,9 @@ class StateMachine:
         # Corner suppression after pillar avoidance
         self._corner_suppressed_frames = 0  # Countdown: skip corner detection
 
+        # Recovery context: what state triggered recovery
+        self._recovery_return_state = RobotState.CORNER  # Where to go after recovery
+
     def start(self):
         """Start the race."""
         self.state = RobotState.WALL_FOLLOW
@@ -181,6 +184,14 @@ class StateMachine:
             return speed, steering
 
         elif self.state == RobotState.CORNER:
+            # Keep updating direction from detector during first frames
+            # (at 600mm the direction might be wrong, at 400mm it's reliable)
+            if self._corner_frames < 10 and world.corner_ahead:
+                self._corner_direction = world.corner_ahead
+                # Also update track direction if not yet set
+                if self.direction is None:
+                    self.direction = "CW" if world.corner_ahead == "RIGHT" else "CCW"
+
             direction = self._corner_direction or world.corner_ahead or "RIGHT"
             speed, steering = self.corner.compute(direction, world)
             if self._corner_frames % 15 == 0:
@@ -271,6 +282,25 @@ class StateMachine:
 
         elif self.state == RobotState.AVOID_PILLAR:
             self._avoid_frames += 1
+
+            # Check if robot is about to hit wall while avoiding pillar
+            front = world.walls.front_distance
+            if front is not None and front < 200 and self._avoid_frames > 10:
+                self.state = RobotState.RECOVERY
+                self._recovery_frames = 0
+                self._recovery_attempts += 1
+                self._recovery_return_state = RobotState.AVOID_PILLAR
+                # Reverse direction: opposite of avoidance steering
+                if self._avoiding_pillar == "red":
+                    self._corner_direction = "RIGHT"  # was steering left, reverse right
+                else:
+                    self._corner_direction = "LEFT"  # was steering right, reverse left
+                logger.info(
+                    f"Transition: AVOID_PILLAR -> RECOVERY "
+                    f"(wall at {front:.0f}mm, attempt {self._recovery_attempts})"
+                )
+                return
+
             # Stay in avoidance for minimum frames to actually complete the maneuver
             if self._avoid_frames < self._min_avoid_frames:
                 return
@@ -299,6 +329,7 @@ class StateMachine:
                 self.state = RobotState.RECOVERY
                 self._recovery_frames = 0
                 self._recovery_attempts += 1
+                self._recovery_return_state = RobotState.CORNER
                 logger.info(
                     f"Transition: CORNER -> RECOVERY "
                     f"(stuck after {self._corner_frames} frames, attempt {self._recovery_attempts})"
@@ -330,11 +361,16 @@ class StateMachine:
             # Escalate: more reverse time on repeated attempts
             reverse_needed = self._recovery_reverse_frames * min(self._recovery_attempts, 3)
             if self._recovery_frames >= reverse_needed:
-                # Done reversing — go back to CORNER and try again
-                self.state = RobotState.CORNER
-                self._corner_frames = 0  # Reset so it gets a fresh attempt
+                # Done reversing — return to the state that triggered recovery
+                return_to = self._recovery_return_state
+                if return_to == RobotState.AVOID_PILLAR:
+                    self.state = RobotState.WALL_FOLLOW  # Re-detect pillar fresh
+                    self._avoid_frames = 0
+                else:
+                    self.state = RobotState.CORNER
+                    self._corner_frames = 0
                 logger.info(
-                    f"Transition: RECOVERY -> CORNER "
+                    f"Transition: RECOVERY -> {self.state.name} "
                     f"(reversed {self._recovery_frames} frames, attempt {self._recovery_attempts})"
                 )
 
