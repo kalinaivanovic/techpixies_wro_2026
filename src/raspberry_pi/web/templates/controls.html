@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>WRO 2025 Robot - Controls</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 15px;
+            background: #1a1a2e;
+            color: #eee;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        h1 { color: #00d9ff; margin: 0 0 8px 0; font-size: 20px; }
+        nav {
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+        }
+        nav a {
+            color: #00d9ff;
+            text-decoration: none;
+            margin-right: 15px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        nav a:hover { background: #333; }
+
+        /* Status bar */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #16213e;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .status-label { color: #888; font-size: 11px; text-transform: uppercase; }
+        .status-value { color: #00d9ff; font-weight: bold; font-size: 16px; }
+        .conn-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .conn-ok { background: #00ff88; }
+        .conn-err { background: #ff4444; }
+
+        /* Controls area */
+        .controls {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* Steering */
+        .control-group {
+            background: #16213e;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .control-label {
+            color: #888;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 1px;
+        }
+        .control-value {
+            font-size: 22px;
+            font-weight: bold;
+            color: #00d9ff;
+        }
+
+        /* Slider styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 40px;
+            background: transparent;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 8px;
+            border-radius: 4px;
+            background: #333;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #00d9ff;
+            cursor: pointer;
+            margin-top: -16px;
+        }
+        input[type="range"]::-moz-range-track {
+            height: 8px;
+            border-radius: 4px;
+            background: #333;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #00d9ff;
+            cursor: pointer;
+            border: none;
+        }
+
+        /* Speed slider - vertical orientation via transform */
+        .speed-group {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            min-height: 220px;
+        }
+        .speed-slider-wrap {
+            width: 60px;
+            height: 200px;
+            position: relative;
+            flex-shrink: 0;
+        }
+        #speed {
+            width: 200px;
+            height: 40px;
+            transform: rotate(-90deg);
+            transform-origin: 100px 100px;
+            position: absolute;
+            left: -70px;
+            top: 0;
+        }
+        .speed-info {
+            flex: 1;
+            text-align: center;
+        }
+        .speed-big {
+            font-size: 64px;
+            font-weight: bold;
+            color: #00d9ff;
+            line-height: 1;
+        }
+        .speed-unit { color: #888; font-size: 14px; }
+        .speed-hint {
+            color: #555;
+            font-size: 11px;
+            margin-top: 10px;
+        }
+
+        /* Buttons */
+        .button-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        button {
+            flex: 1;
+            padding: 18px;
+            font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            touch-action: manipulation;
+        }
+        .btn-stop {
+            background: #ff4444;
+            color: white;
+            font-size: 24px;
+            padding: 22px;
+        }
+        .btn-stop:active { background: #cc0000; }
+        .btn-center {
+            background: #444;
+            color: white;
+        }
+        .btn-center:active { background: #555; }
+
+        /* Keyboard hints */
+        .hints {
+            color: #555;
+            font-size: 11px;
+            text-align: center;
+            margin-top: 10px;
+        }
+        .hints kbd {
+            background: #333;
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>Motor Controls</h1>
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/lidar">LIDAR</a>
+        <a href="/controls">Controls</a>
+    </nav>
+
+    <div class="controls">
+        <!-- Status bar -->
+        <div class="status-bar">
+            <div class="status-item">
+                <span class="conn-dot" id="conn-dot"></span>
+                <span id="conn-text" style="font-size:12px; color:#888">--</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Enc</span>
+                <span class="status-value" id="encoder">0</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Spd</span>
+                <span class="status-value" id="cur-speed">0</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Str</span>
+                <span class="status-value" id="cur-steer">90</span>
+            </div>
+        </div>
+
+        <!-- Steering slider -->
+        <div class="control-group">
+            <div class="control-header">
+                <span class="control-label">Steering</span>
+                <span class="control-value"><span id="steer-val">90</span>&deg;</span>
+            </div>
+            <input type="range" id="steering" min="0" max="180" value="90">
+        </div>
+
+        <!-- Speed slider (vertical) -->
+        <div class="control-group">
+            <div class="control-header">
+                <span class="control-label">Speed</span>
+                <span class="control-label" style="color:#555">releases to 0</span>
+            </div>
+            <div class="speed-group">
+                <div class="speed-slider-wrap">
+                    <input type="range" id="speed" min="-100" max="100" value="0">
+                </div>
+                <div class="speed-info">
+                    <div class="speed-big" id="speed-val">0</div>
+                    <div class="speed-unit">%</div>
+                    <div class="speed-hint">drag &amp; hold to drive</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="button-row">
+            <button class="btn-stop" id="btn-stop">STOP</button>
+            <button class="btn-center" id="btn-center">CENTER</button>
+        </div>
+
+        <div class="hints">
+            Keyboard: <kbd>&uarr;</kbd><kbd>&darr;</kbd> speed
+            <kbd>&larr;</kbd><kbd>&rarr;</kbd> steer
+            <kbd>Space</kbd> stop
+        </div>
+    </div>
+
+    <script>
+        const speedEl = document.getElementById('speed');
+        const steerEl = document.getElementById('steering');
+        const speedVal = document.getElementById('speed-val');
+        const steerVal = document.getElementById('steer-val');
+        const connDot = document.getElementById('conn-dot');
+        const connText = document.getElementById('conn-text');
+        const curSpeed = document.getElementById('cur-speed');
+        const curSteer = document.getElementById('cur-steer');
+        const encoderEl = document.getElementById('encoder');
+
+        let motorAvailable = false;
+
+        // --- API calls ---
+
+        async function sendDrive(speed, steering) {
+            try {
+                const res = await fetch('/api/drive', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({speed, steering})
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    motorAvailable = true;
+                    updateConn(true);
+                }
+                return data;
+            } catch (e) {
+                updateConn(false);
+                return null;
+            }
+        }
+
+        async function sendStop() {
+            try {
+                await fetch('/api/stop', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: '{}'
+                });
+                updateConn(true);
+            } catch (e) {
+                updateConn(false);
+            }
+        }
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                encoderEl.textContent = data.encoder;
+                curSpeed.textContent = data.speed;
+                curSteer.textContent = data.steering;
+                motorAvailable = data.speed !== undefined;
+                updateConn(true);
+            } catch (e) {
+                updateConn(false);
+            }
+        }
+
+        function updateConn(ok) {
+            connDot.className = 'conn-dot ' + (ok ? 'conn-ok' : 'conn-err');
+            connText.textContent = ok ? (motorAvailable ? 'Motor OK' : 'No motor') : 'Offline';
+        }
+
+        // --- Slider events ---
+
+        function onSpeedInput() {
+            const v = parseInt(speedEl.value);
+            speedVal.textContent = v;
+            sendDrive(v, parseInt(steerEl.value));
+        }
+
+        function onSpeedRelease() {
+            speedEl.value = 0;
+            speedVal.textContent = '0';
+            sendDrive(0, parseInt(steerEl.value));
+        }
+
+        function onSteerInput() {
+            const v = parseInt(steerEl.value);
+            steerVal.textContent = v;
+            sendDrive(parseInt(speedEl.value), v);
+        }
+
+        // Speed slider: send on input, snap to 0 on release
+        speedEl.addEventListener('input', onSpeedInput);
+        speedEl.addEventListener('mouseup', onSpeedRelease);
+        speedEl.addEventListener('touchend', onSpeedRelease);
+
+        // Steering slider: send on input, no snap
+        steerEl.addEventListener('input', onSteerInput);
+
+        // Buttons
+        document.getElementById('btn-stop').addEventListener('click', () => {
+            speedEl.value = 0;
+            speedVal.textContent = '0';
+            sendStop();
+        });
+
+        // Also allow touch-hold on stop button (prevent default to avoid scroll)
+        document.getElementById('btn-stop').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            speedEl.value = 0;
+            speedVal.textContent = '0';
+            sendStop();
+        });
+
+        document.getElementById('btn-center').addEventListener('click', () => {
+            steerEl.value = 90;
+            steerVal.textContent = '90';
+            sendDrive(parseInt(speedEl.value), 90);
+        });
+
+        // --- Keyboard controls ---
+
+        document.addEventListener('keydown', (e) => {
+            let handled = true;
+            switch (e.key) {
+                case 'ArrowUp':
+                    speedEl.value = Math.min(100, parseInt(speedEl.value) + 10);
+                    speedVal.textContent = speedEl.value;
+                    sendDrive(parseInt(speedEl.value), parseInt(steerEl.value));
+                    break;
+                case 'ArrowDown':
+                    speedEl.value = Math.max(-100, parseInt(speedEl.value) - 10);
+                    speedVal.textContent = speedEl.value;
+                    sendDrive(parseInt(speedEl.value), parseInt(steerEl.value));
+                    break;
+                case 'ArrowLeft':
+                    steerEl.value = Math.max(0, parseInt(steerEl.value) - 10);
+                    steerVal.textContent = steerEl.value;
+                    sendDrive(parseInt(speedEl.value), parseInt(steerEl.value));
+                    break;
+                case 'ArrowRight':
+                    steerEl.value = Math.min(180, parseInt(steerEl.value) + 10);
+                    steerVal.textContent = steerEl.value;
+                    sendDrive(parseInt(speedEl.value), parseInt(steerEl.value));
+                    break;
+                case ' ':
+                    speedEl.value = 0;
+                    speedVal.textContent = '0';
+                    sendStop();
+                    break;
+                default:
+                    handled = false;
+            }
+            if (handled) e.preventDefault();
+        });
+
+        // --- Status polling ---
+        setInterval(fetchStatus, 1000);
+        fetchStatus();
+    </script>
+</body>
+</html>

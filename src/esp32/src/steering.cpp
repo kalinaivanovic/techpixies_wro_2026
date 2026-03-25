@@ -11,8 +11,6 @@ void steering_init()
   digitalWrite(SERVO_PIN, LOW);
   delay(50);
 
-  ESP32PWM::allocateTimer(2);  // Use timer 2 for servo (timers 0,1 used by motor)
-  steeringServo.setPeriodHertz(50);
   steeringServo.attach(SERVO_PIN, 500, 2500);  // Min/max pulse width from servo spec
   delay(50);
   steering_center();

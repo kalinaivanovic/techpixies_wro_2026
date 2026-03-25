@@ -1,0 +1,17 @@
+[Unit]
+Description=WRO Robot Button Daemon
+After=multi-user.target
+
+[Service]
+Type=simple
+User=kalina
+WorkingDirectory=/home/kalina/techpixies_wro_2026/src/raspberry_pi
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/kalina/techpixies_wro_2026/src/raspberry_pi/bin/python -u system/button_daemon.py
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

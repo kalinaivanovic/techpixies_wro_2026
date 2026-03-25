@@ -15,7 +15,7 @@ void IRAM_ATTR encoderISR()
 {
   int MSB = digitalRead(ENCODER_A);
   int LSB = digitalRead(ENCODER_B);
-  int encoded = (MSB << 1) | LSB;
+  int encoded = (MSB << 1) | LSB; 
   int sum = (lastEncoded << 2) | encoded;
 
   if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) encoderCount++;
@@ -73,37 +73,46 @@ void motor_init()
   digitalWrite(MOTOR_EN, LOW);
   digitalWrite(MOTOR_PN, LOW);
 
+  /** Configure PWM parameters here */
   mcpwm_config_t pwm_config;
-  pwm_config.frequency = 1000;
+  pwm_config.frequency = 1000;//Hz
   pwm_config.cmpr_a = 0;
   pwm_config.cmpr_b = 0;
   pwm_config.counter_mode = MCPWM_UP_COUNTER;
   pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
+  /** end of PWM parameters */
 
-  mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, MOTOR_EN);
-  mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0B, MOTOR_PN);
+  mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, MOTOR_EN);//In Unit 0, connect motor enable to generator A
+  mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0B, MOTOR_PN);//In Unit 0, connect direction to generator B, although we don't use PWM here
   mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);
 
   // Ensure motor is stopped after init
   motor_stop();
-
   encoder_init();
 }
 
 void motor_forward(uint8_t speed)
 {
+  // Scale 0-100 input to 0-MAX_DUTY_PERCENT duty cycle
+  uint8_t duty = (uint16_t)speed * MAX_DUTY_PERCENT / 100;
+  if (duty > MAX_DUTY_PERCENT) duty = MAX_DUTY_PERCENT;
+
   motorRunning = true;
   mcpwm_set_signal_low(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_GEN_B);  // Swapped
   mcpwm_set_duty_type(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_GEN_A, MCPWM_DUTY_MODE_0);
-  mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_GEN_A, speed);
+  mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_GEN_A, duty);
 }
 
 void motor_backward(uint8_t speed)
 {
+  // Scale 0-100 input to 0-MAX_DUTY_PERCENT duty cycle
+  uint8_t duty = (uint16_t)speed * MAX_DUTY_PERCENT / 100;
+  if (duty > MAX_DUTY_PERCENT) duty = MAX_DUTY_PERCENT;
+
   motorRunning = true;
   mcpwm_set_signal_high(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_GEN_B);  // Swapped
   mcpwm_set_duty_type(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_GEN_A, MCPWM_DUTY_MODE_0);
-  mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_GEN_A, speed);
+  mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_GEN_A, duty);
 }
 
 void motor_stop()

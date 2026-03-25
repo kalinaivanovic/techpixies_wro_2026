@@ -67,7 +67,7 @@ pytestdebug.log
 *.mo
 *.pot
 
-# Environments
+# Environments (anywhere in project)
 .env
 .venv
 env/
@@ -75,6 +75,11 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+**/bin/
+**/lib/python*/
+**/lib64
+**/pyvenv.cfg
+**/include/python*/
 
 # Spyder project settings
 .spyderproject

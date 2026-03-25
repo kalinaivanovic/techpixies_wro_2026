@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Techpixies WRO Engineering Challenge</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            min-height: 100vh;
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #444;
+            font-weight: 400;
+            font-size: 2rem;
+        }
+
+        .architecture {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .layer {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            border-left: 6px solid;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .layer-header {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .layer-content {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* Layer colors - grayscale with slight tints */
+        .control { border-color: #333; }
+        .control .layer-header { color: #333; }
+
+        .decision { border-color: #555; }
+        .decision .layer-header { color: #555; }
+
+        .perception { border-color: #777; }
+        .perception .layer-header { color: #777; }
+
+        .sensors { border-color: #999; }
+        .sensors .layer-header { color: #999; }
+
+        /* Boxes */
+        .box {
+            background: #f8f8f8;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 18px 24px;
+            min-width: 150px;
+            text-align: center;
+        }
+
+        .box-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: #888;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        .box-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            font-family: 'Consolas', 'Monaco', monospace;
+            color: #222;
+        }
+
+        /* State badge */
+        .state-badge {
+            background: #444;
+            color: #fff;
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+        }
+
+        /* Sensor images */
+        .sensor-box {
+            background: #f8f8f8;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .sensor-box .box-label {
+            margin-bottom: 12px;
+        }
+
+        .sensor-image {
+            width: 280px;
+            height: 210px;
+            background: #e8e8e8;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 1rem;
+            border: 1px solid #ddd;
+        }
+
+        /* Connection arrows */
+        .arrow {
+            display: flex;
+            justify-content: center;
+            padding: 6px 0;
+        }
+
+        .arrow::before {
+            content: '';
+            width: 3px;
+            height: 30px;
+            background: linear-gradient(to bottom, #ccc, #aaa);
+            border-radius: 2px;
+        }
+
+        /* Pillar indicator */
+        .pillar {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: #f8f8f8;
+            padding: 10px 18px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .pillar-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+        }
+
+        .pillar-dot.red { background: #d63031; }
+        .pillar-dot.green { background: #00b894; }
+
+        .pillar span:last-child {
+            font-family: 'Consolas', monospace;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        /* HSV slider rows */
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 0;
+        }
+        .slider-row > span:first-child {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #555;
+            min-width: 14px;
+        }
+        .slider-row input[type="range"] {
+            flex: 1;
+            min-width: 60px;
+        }
+        .slider-row .sv {
+            font-family: 'Consolas', monospace;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #222;
+            min-width: 28px;
+            text-align: right;
+        }
+
+        /* Responsive */
+        @media (max-width: 700px) {
+            body {
+                padding: 15px;
+            }
+            .sensor-image {
+                width: 200px;
+                height: 150px;
+            }
+            .box {
+                min-width: 120px;
+                padding: 12px 16px;
+            }
+            .box-value {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Techpixies WRO Engineering Challenge</h1>
+
+    <div class="architecture">
+        <!-- CONTROL LAYER -->
+        <div class="layer control">
+            <div class="layer-header">Control Output</div>
+            <div class="layer-content">
+                <div class="box">
+                    <div class="box-label">Speed</div>
+                    <div class="box-value" id="speed">60</div>
+                </div>
+                <div class="box">
+                    <div class="box-label">Steering</div>
+                    <div class="box-value" id="steering">+12°</div>
+                </div>
+                <div class="box">
+                    <div class="box-label">Lap</div>
+                    <div class="box-value" id="lap">2 / 3</div>
+                </div>
+                <div id="auto-btn" class="box" style="cursor:pointer;background:#00b894;border:none" onclick="toggleAuto()">
+                    <div class="box-label" style="color:#fff">Autonomous</div>
+                    <div class="box-value" style="color:#fff;font-size:1.1rem" id="auto-btn-text">Start Robot</div>
+                </div>
+                <div class="box" style="cursor:pointer;background:#d63031;border:none" onclick="openManualControl()">
+                    <div class="box-label" style="color:#fff">Override</div>
+                    <div class="box-value" style="color:#fff;font-size:1.1rem">Manual Control</div>
+                </div>
+                <div id="mode-box" class="box" style="cursor:pointer;border:2px solid #6c5ce7" onclick="toggleMode()">
+                    <div class="box-label">Challenge</div>
+                    <div class="box-value" id="mode-display" style="font-size:1.1rem;color:#6c5ce7">OBSTACLE</div>
+                </div>
+                <div id="pi-system" class="box" style="display:none">
+                    <div class="box-label">Pi System</div>
+                    <div style="font-family:Consolas,monospace;font-size:0.85rem;line-height:1.6">
+                        <div>Temp: <span id="pi-temp" style="font-weight:600">--</span></div>
+                        <div>Power: <span id="pi-power" style="font-weight:600">--</span></div>
+                        <div id="pi-voltage-row" style="display:none">Voltage: <span id="pi-voltage" style="font-weight:600">--</span></div>
+                        <div id="pi-current-row" style="display:none">Current: <span id="pi-current" style="font-weight:600">--</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="arrow"></div>
+
+        <!-- DECISION LAYER -->
+        <div class="layer decision">
+            <div class="layer-header">Decision</div>
+            <div class="layer-content">
+                <div class="box">
+                    <div class="box-label">State</div>
+                    <div class="state-badge" id="state">WALL_FOLLOW</div>
+                </div>
+                <div class="box">
+                    <div class="box-label">Direction</div>
+                    <div class="box-value" id="direction">CW</div>
+                </div>
+                <div class="box">
+                    <div class="box-label">Next Corner</div>
+                    <div class="box-value" id="next-corner">850mm</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="arrow"></div>
+
+        <!-- PERCEPTION LAYER -->
+        <div class="layer perception">
+            <div class="layer-header">Perception (WorldState)</div>
+            <div class="layer-content">
+                <div class="sensor-box" style="cursor:pointer" onclick="openWorldstateOverlay()">
+                    <div class="box-label">WorldState Bird's Eye - click to expand</div>
+                    <img src="/stream/worldstate" class="sensor-image" id="ws-birdseye" alt="WorldState Stream" />
+                </div>
+                <div class="sensor-box" style="cursor:pointer" onclick="openWorldstateCameraOverlay()">
+                    <div class="box-label">Fusion Camera - click to expand</div>
+                    <img src="/stream/worldstate/camera" class="sensor-image" id="ws-camera" alt="WorldState Camera" />
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;width:170px;flex-shrink:0">
+                    <div class="box">
+                        <div class="box-label">Left Wall</div>
+                        <div class="box-value" id="left-wall">--</div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">Front</div>
+                        <div class="box-value" id="front-wall">--</div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">Right Wall</div>
+                        <div class="box-value" id="right-wall">--</div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">Corridor</div>
+                        <div class="box-value" id="corridor">--</div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">Corner</div>
+                        <div class="box-value" id="corner-ahead">--</div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">Pillars</div>
+                        <div id="pillars-container" style="height:40px;overflow:hidden">--</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="arrow"></div>
+
+        <!-- SENSORS LAYER -->
+        <div class="layer sensors">
+            <div class="layer-header">Sensors</div>
+            <div class="layer-content">
+                <div class="sensor-box" style="cursor:pointer" onclick="openLidarOverlay()">
+                    <div class="box-label">LIDAR (10Hz) - click to expand</div>
+                    <img src="/stream/lidar" class="sensor-image" id="lidar-view" alt="LIDAR Stream" />
+                </div>
+                <div class="sensor-box" style="cursor:pointer" onclick="openCameraOverlay()">
+                    <div class="box-label">Camera (30Hz) - click to expand</div>
+                    <img src="/stream/camera" class="sensor-image" id="camera-view" alt="Camera Stream" />
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                    <div class="box">
+                        <div class="box-label">Encoder</div>
+                        <div class="box-value" id="encoder">0</div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">Ticks/sec</div>
+                        <div class="box-value" id="ticks-per-sec">0</div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">RPM</div>
+                        <div class="box-value" id="rpm">0</div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">Speed</div>
+                        <div class="box-value" id="speed-cms">0 <span style="font-size:0.7rem;color:#888">cm/s</span></div>
+                    </div>
+                    <div class="box">
+                        <div class="box-label">Distance</div>
+                        <div class="box-value" id="distance">0 <span style="font-size:0.7rem;color:#888">cm</span></div>
+                    </div>
+                    <!-- Base speed control -->
+                    <div class="box" style="cursor:pointer;border:2px solid #e0e0e0" onclick="toggleSpeedControl()">
+                        <div class="box-label">Base Speed</div>
+                        <div class="box-value" id="base-speed-display" style="font-size:1.1rem">60 / 35</div>
+                        <div style="font-size:0.65rem;color:#aaa;margin-top:4px">normal / slow &middot; click to edit</div>
+                    </div>
+                    <div id="speed-control-panel" style="display:none;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:14px">
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Normal Speed: <strong id="normal-speed-val">60</strong></label>
+                            <input type="range" id="normal-speed-slider" min="10" max="100" value="60"
+                                style="width:100%;margin-top:4px"
+                                oninput="onSpeedSlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Slow Speed: <strong id="slow-speed-val">35</strong></label>
+                            <input type="range" id="slow-speed-slider" min="10" max="100" value="35"
+                                style="width:100%;margin-top:4px"
+                                oninput="onSpeedSlider()">
+                        </div>
+                        <button onclick="saveSpeedParams(this)" style="
+                            width:100%;padding:6px;border:none;border-radius:6px;
+                            background:#6c5ce7;color:#fff;font-size:0.8rem;cursor:pointer;
+                        ">Save</button>
+                    </div>
+                    <!-- Avoidance steering control -->
+                    <div class="box" style="cursor:pointer;border:2px solid #e0e0e0" onclick="toggleAvoidControl()">
+                        <div class="box-label">Avoid Steer</div>
+                        <div class="box-value" id="avoid-steer-display" style="font-size:1.1rem">45 / 80</div>
+                        <div style="font-size:0.65rem;color:#aaa;margin-top:4px">min / max &middot; click to edit</div>
+                    </div>
+                    <div id="avoid-control-panel" style="display:none;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:14px">
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Min Turn: <strong id="avoid-min-val">45</strong>&deg;</label>
+                            <input type="range" id="avoid-min-slider" min="10" max="90" value="45"
+                                style="width:100%;margin-top:4px"
+                                oninput="onAvoidSlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Max Turn: <strong id="avoid-max-val">80</strong>&deg;</label>
+                            <input type="range" id="avoid-max-slider" min="10" max="90" value="80"
+                                style="width:100%;margin-top:4px"
+                                oninput="onAvoidSlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Blocking Angle: <strong id="avoid-blocking-val">35</strong>&deg;</label>
+                            <input type="range" id="avoid-blocking-slider" min="15" max="70" value="35"
+                                style="width:100%;margin-top:4px"
+                                oninput="onAvoidSlider()">
+                        </div>
+                        <button onclick="saveAvoidParams(this)" style="
+                            width:100%;padding:6px;border:none;border-radius:6px;
+                            background:#6c5ce7;color:#fff;font-size:0.8rem;cursor:pointer;
+                        ">Save</button>
+                    </div>
+                    <!-- Corner control -->
+                    <div class="box" style="cursor:pointer;border:2px solid #e0e0e0" onclick="toggleCornerControl()">
+                        <div class="box-label">Corner</div>
+                        <div class="box-value" id="corner-display" style="font-size:1.1rem">500 / 1200</div>
+                        <div style="font-size:0.65rem;color:#aaa;margin-top:4px">enter / exit (hysteresis) &middot; click to edit</div>
+                    </div>
+                    <div id="corner-control-panel" style="display:none;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:14px">
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Enter Threshold: <strong id="corner-threshold-val">500</strong>mm</label>
+                            <input type="range" id="corner-threshold-slider" min="200" max="1500" step="50" value="500"
+                                style="width:100%;margin-top:4px"
+                                oninput="onCornerSlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Exit Threshold: <strong id="corner-exit-val">1200</strong>mm</label>
+                            <input type="range" id="corner-exit-slider" min="500" max="2500" step="50" value="1200"
+                                style="width:100%;margin-top:4px"
+                                oninput="onCornerSlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Turn Offset: <strong id="corner-turn-val">25</strong>&deg;</label>
+                            <input type="range" id="corner-turn-slider" min="10" max="80" value="25"
+                                style="width:100%;margin-top:4px"
+                                oninput="onCornerSlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Corner Speed: <strong id="corner-speed-val">35</strong></label>
+                            <input type="range" id="corner-speed-slider" min="10" max="80" value="35"
+                                style="width:100%;margin-top:4px"
+                                oninput="onCornerSlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Min Frames: <strong id="corner-frames-val">15</strong></label>
+                            <input type="range" id="corner-frames-slider" min="5" max="60" value="15"
+                                style="width:100%;margin-top:4px"
+                                oninput="onCornerSlider()">
+                        </div>
+                        <button onclick="saveCornerParams(this)" style="
+                            width:100%;padding:6px;border:none;border-radius:6px;
+                            background:#6c5ce7;color:#fff;font-size:0.8rem;cursor:pointer;
+                        ">Save</button>
+                    </div>
+                    <!-- Recovery control -->
+                    <div class="box" style="cursor:pointer;border:2px solid #e0e0e0" onclick="toggleRecoveryControl()">
+                        <div class="box-label">Recovery</div>
+                        <div class="box-value" id="recovery-display" style="font-size:1.1rem">50 / 25 / 40</div>
+                        <div style="font-size:0.65rem;color:#aaa;margin-top:4px">trigger / reverse / speed &middot; click to edit</div>
+                    </div>
+                    <div id="recovery-control-panel" style="display:none;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:14px">
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Trigger After: <strong id="recovery-trigger-val">75</strong> frames</label>
+                            <input type="range" id="recovery-trigger-slider" min="20" max="150" step="5" value="75"
+                                style="width:100%;margin-top:4px"
+                                oninput="onRecoverySlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Reverse Frames: <strong id="recovery-reverse-val">25</strong></label>
+                            <input type="range" id="recovery-reverse-slider" min="10" max="100" step="5" value="25"
+                                style="width:100%;margin-top:4px"
+                                oninput="onRecoverySlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Reverse Speed: <strong id="recovery-speed-val">40</strong></label>
+                            <input type="range" id="recovery-speed-slider" min="20" max="100" step="5" value="40"
+                                style="width:100%;margin-top:4px"
+                                oninput="onRecoverySlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;cursor:pointer;display:flex;align-items:center;gap:6px">
+                                <input type="checkbox" id="recovery-escalate" checked onchange="onRecoverySlider()">
+                                <span style="text-transform:uppercase;letter-spacing:1px">Escalate</span>
+                            </label>
+                            <span style="font-size:0.65rem;color:#aaa">Each attempt reverses longer (1x, 2x, 3x frames)</span>
+                        </div>
+                        <button onclick="saveRecoveryParams(this)" style="
+                            width:100%;padding:6px;border:none;border-radius:6px;
+                            background:#6c5ce7;color:#fff;font-size:0.8rem;cursor:pointer;
+                        ">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual control overlay -->
+    <div id="manual-overlay" style="
+        display:none;
+        position:fixed;
+        top:0;left:0;right:0;bottom:0;
+        background:rgba(0,0,0,0.5);
+        z-index:1000;
+        padding:30px;
+        overflow:auto;
+    " onclick="if(event.target===this)closeManualControl()">
+        <div style="
+            max-width:800px;
+            margin:0 auto;
+            background:#fff;
+            border-radius:12px;
+            padding:24px;
+            position:relative;
+            box-shadow:0 4px 20px rgba(0,0,0,0.15);
+        ">
+            <button onclick="closeManualControl()" style="
+                position:absolute;top:12px;right:16px;
+                background:none;border:none;font-size:1.5rem;
+                cursor:pointer;color:#666;
+            ">&#x2715;</button>
+
+            <h2 style="margin:0 0 4px;color:#d63031;font-weight:600;font-size:1.3rem">Manual Control</h2>
+            <div style="font-size:0.75rem;color:#888;margin-bottom:16px">
+                Arrow keys or buttons &middot; Space: emergency stop
+            </div>
+
+            <!-- Camera feed -->
+            <div style="margin-bottom:16px">
+                <div style="font-size:0.8rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                    Camera Feed
+                </div>
+                <img id="mc-camera" style="width:100%;border-radius:6px;background:#e8e8e8" />
+            </div>
+
+            <!-- Controls -->
+            <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
+                <!-- Direction buttons centered -->
+                <div style="display:flex;gap:6px;align-items:center">
+                    <button id="btn-left" style="
+                        width:80px;height:80px;border:1px solid #ddd;border-radius:10px;cursor:pointer;
+                        background:#f0f0f0;font-size:1.8rem;color:#333;touch-action:none;
+                    ">&#x25C0;</button>
+
+                    <div style="display:flex;flex-direction:column;gap:6px">
+                        <button id="btn-fwd" style="
+                            width:56px;height:56px;border:1px solid #ddd;border-radius:8px;cursor:pointer;
+                            background:#f0f0f0;font-size:1.3rem;color:#333;touch-action:none;
+                        ">&#x25B2;</button>
+                        <button id="btn-bwd" style="
+                            width:56px;height:56px;border:1px solid #ddd;border-radius:8px;cursor:pointer;
+                            background:#f0f0f0;font-size:1.3rem;color:#333;touch-action:none;
+                        ">&#x25BC;</button>
+                    </div>
+
+                    <button id="btn-right" style="
+                        width:80px;height:80px;border:1px solid #ddd;border-radius:10px;cursor:pointer;
+                        background:#f0f0f0;font-size:1.8rem;color:#333;touch-action:none;
+                    ">&#x25B6;</button>
+
+                    <div style="width:12px"></div>
+
+                    <button id="btn-reverse-toggle" onclick="mcToggleReverse()" style="
+                        width:80px;height:80px;border:2px solid #6c5ce7;border-radius:10px;cursor:pointer;
+                        background:#f0f0f0;color:#6c5ce7;font-size:0.75rem;font-weight:bold;letter-spacing:1px;
+                    ">FWD</button>
+
+                    <button onclick="mcStop()" style="
+                        width:80px;height:80px;border:none;border-radius:10px;cursor:pointer;
+                        background:#d63031;color:white;font-size:0.9rem;font-weight:bold;letter-spacing:1px;
+                    ">STOP</button>
+                </div>
+
+                <!-- Speed slider + status row -->
+                <div style="display:flex;gap:12px;align-items:center;width:100%;max-width:400px">
+                    <div style="flex:1;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:10px 14px">
+                        <div style="font-size:0.7rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:6px">
+                            Speed
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <input type="range" id="mc-speed" min="40" max="100" value="70" style="flex:1">
+                            <span id="mc-speed-value" style="font-size:1.1rem;font-weight:600;font-family:monospace;color:#222;min-width:35px;text-align:right">70</span><span style="color:#888">%</span>
+                        </div>
+                    </div>
+
+                    <div id="mc-status" style="
+                        padding:8px 12px;
+                        background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;
+                        color:#888;font-size:0.8rem;white-space:nowrap;
+                    ">Not connected</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LIDAR overlay dialog -->
+    <div id="lidar-overlay" style="
+        display:none;
+        position:fixed;
+        top:0;left:0;right:0;bottom:0;
+        background:rgba(0,0,0,0.5);
+        z-index:1000;
+        padding:30px;
+        overflow:auto;
+    " onclick="if(event.target===this)closeLidarOverlay()">
+        <div style="
+            max-width:960px;
+            margin:0 auto;
+            background:#fff;
+            border-radius:12px;
+            padding:24px;
+            position:relative;
+            box-shadow:0 4px 20px rgba(0,0,0,0.15);
+        ">
+            <button onclick="closeLidarOverlay()" style="
+                position:absolute;top:12px;right:16px;
+                background:none;border:none;font-size:1.5rem;
+                cursor:pointer;color:#666;
+            ">&#x2715;</button>
+
+            <h2 style="margin:0 0 20px;color:#444;font-weight:400">LIDAR Debug View</h2>
+
+            <div style="display:flex;gap:16px;flex-wrap:wrap">
+                <div style="flex:1;min-width:300px">
+                    <div style="font-size:0.8rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                        Bird's Eye View (with clusters)
+                    </div>
+                    <img id="overlay-lidar" style="width:100%;border-radius:6px;background:#111" />
+                </div>
+                <div style="flex:1;min-width:300px">
+                    <div style="font-size:0.8rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                        Raw Points
+                    </div>
+                    <img id="overlay-lidar-raw" style="width:100%;border-radius:6px;background:#111" />
+                </div>
+            </div>
+
+            <!-- LIDAR display controls -->
+            <div style="margin-top:20px;display:flex;gap:16px;flex-wrap:wrap">
+                <div style="flex:1;min-width:200px;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:12px 16px">
+                    <div style="font-size:0.7rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                        Max Distance
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <input type="range" id="lidar-distance" min="500" max="12000" step="500" value="3000" oninput="lidarParamChanged()" style="flex:1">
+                        <span id="lidar-distance-val" style="font-size:1rem;font-weight:600;font-family:monospace;color:#222;min-width:55px;text-align:right">3000</span><span style="color:#888;font-size:0.8rem">mm</span>
+                    </div>
+                </div>
+                <div style="flex:1;min-width:200px;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:12px 16px">
+                    <div style="font-size:0.7rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                        Angle &plusmn;
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <input type="range" id="lidar-angle" min="15" max="180" step="15" value="180" oninput="lidarParamChanged()" style="flex:1">
+                        <span id="lidar-angle-val" style="font-size:1rem;font-weight:600;font-family:monospace;color:#222;min-width:35px;text-align:right">180</span><span style="color:#888;font-size:0.8rem">&deg;</span>
+                    </div>
+                </div>
+                <div style="flex:1;min-width:200px;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:12px 16px">
+                    <div style="font-size:0.7rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                        Min Quality
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <input type="range" id="lidar-quality" min="0" max="50" step="5" value="0" oninput="lidarParamChanged()" style="flex:1">
+                        <span id="lidar-quality-val" style="font-size:1rem;font-weight:600;font-family:monospace;color:#222;min-width:20px;text-align:right">0</span>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                    <label style="font-size:0.75rem;color:#666;cursor:pointer;display:flex;align-items:center;gap:6px">
+                        <input type="checkbox" id="lidar-instant" onchange="lidarInstantChanged()">
+                        <span style="text-transform:uppercase;letter-spacing:1px">Live mode</span>
+                    </label>
+                    <span style="font-size:0.65rem;color:#aaa">Update per-point instead of per-rotation (~10x faster)</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                    <button onclick="lidarSave(this)" style="
+                        padding:8px 16px;border-radius:6px;border:1px solid #00b894;
+                        background:#00b894;color:#fff;cursor:pointer;font-weight:600;font-size:0.8rem;
+                    ">Save</button>
+                    <span id="lidar-save-status" style="font-size:0.75rem;color:#888"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera overlay dialog -->
+    <div id="camera-overlay" style="
+        display:none;
+        position:fixed;
+        top:0;left:0;right:0;bottom:0;
+        background:rgba(0,0,0,0.85);
+        z-index:1000;
+        padding:30px;
+        overflow:auto;
+    " onclick="if(event.target===this)closeCameraOverlay()">
+        <div style="
+            max-width:960px;
+            margin:0 auto;
+            background:#fff;
+            border-radius:12px;
+            padding:24px;
+            position:relative;
+        ">
+            <button onclick="closeCameraOverlay()" style="
+                position:absolute;top:12px;right:16px;
+                background:none;border:none;font-size:1.5rem;
+                cursor:pointer;color:#666;
+            ">&#x2715;</button>
+
+            <h2 style="margin:0 0 20px;color:#444;font-weight:400">Camera Debug View</h2>
+
+            <div style="margin-bottom:20px">
+                <div style="font-size:0.8rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                    Camera Feed (with detections)
+                </div>
+                <img id="overlay-camera" style="width:100%;border-radius:6px;background:#e8e8e8" />
+            </div>
+
+            <div style="display:flex;gap:16px">
+                <div style="flex:1">
+                    <div style="font-size:0.8rem;text-transform:uppercase;color:#d63031;letter-spacing:1px;margin-bottom:8px">
+                        Red Mask
+                    </div>
+                    <img id="overlay-red" style="width:100%;border-radius:6px;background:#e8e8e8" />
+                </div>
+                <div style="flex:1">
+                    <div style="font-size:0.8rem;text-transform:uppercase;color:#00b894;letter-spacing:1px;margin-bottom:8px">
+                        Green Mask
+                    </div>
+                    <img id="overlay-green" style="width:100%;border-radius:6px;background:#e8e8e8" />
+                </div>
+                <div style="flex:1">
+                    <div style="font-size:0.8rem;text-transform:uppercase;color:#a855f7;letter-spacing:1px;margin-bottom:8px">
+                        Magenta Mask
+                    </div>
+                    <img id="overlay-magenta" style="width:100%;border-radius:6px;background:#e8e8e8" />
+                </div>
+            </div>
+
+            <!-- HSV Color Calibration -->
+            <div style="margin-top:24px;border-top:1px solid #e0e0e0;padding-top:20px">
+                <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+                    <div style="font-size:0.9rem;font-weight:600;color:#444;letter-spacing:1px;text-transform:uppercase">
+                        Color Calibration
+                    </div>
+
+                    <!-- Color selector tabs -->
+                    <div id="color-tabs" style="display:flex;gap:4px">
+                        <button onclick="selectColorTab('red')" id="tab-red" style="
+                            padding:6px 16px;border-radius:6px;border:2px solid #d63031;
+                            background:#d63031;color:#fff;cursor:pointer;font-weight:600;font-size:0.8rem;
+                        ">Red</button>
+                        <button onclick="selectColorTab('green')" id="tab-green" style="
+                            padding:6px 16px;border-radius:6px;border:2px solid #00b894;
+                            background:transparent;color:#00b894;cursor:pointer;font-weight:600;font-size:0.8rem;
+                        ">Green</button>
+                        <button onclick="selectColorTab('magenta')" id="tab-magenta" style="
+                            padding:6px 16px;border-radius:6px;border:2px solid #a855f7;
+                            background:transparent;color:#a855f7;cursor:pointer;font-weight:600;font-size:0.8rem;
+                        ">Magenta</button>
+                    </div>
+
+                    <!-- Min area + buttons -->
+                    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+                        <div style="font-size:0.7rem;color:#888;text-transform:uppercase">Min Area</div>
+                        <input type="range" id="hsv-min-area" min="50" max="2000" step="50" value="300" oninput="hsvParamChanged()" style="width:100px">
+                        <span id="hsv-min-area-val" style="font-family:monospace;font-size:0.85rem;font-weight:600;min-width:35px">300</span>
+
+                        <button onclick="hsvSave()" style="
+                            padding:6px 14px;border-radius:6px;border:1px solid #00b894;
+                            background:#00b894;color:#fff;cursor:pointer;font-weight:600;font-size:0.75rem;
+                        ">Save</button>
+                        <button onclick="hsvReset()" style="
+                            padding:6px 14px;border-radius:6px;border:1px solid #ccc;
+                            background:#f0f0f0;color:#666;cursor:pointer;font-weight:600;font-size:0.75rem;
+                        ">Reset</button>
+                    </div>
+                </div>
+
+                <!-- Red sliders (two hue ranges) -->
+                <div id="sliders-red" class="hsv-sliders">
+                    <div style="font-size:0.75rem;color:#888;margin-bottom:8px">Range 1 (Low Hue)</div>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>H</span><input type="range" min="0" max="180" data-param="red_h_min1" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="180" data-param="red_h_max1" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>S</span><input type="range" min="0" max="255" data-param="red_s_min1" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="red_s_max1" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>V</span><input type="range" min="0" max="255" data-param="red_v_min1" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="red_v_max1" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                    </div>
+                    <div style="font-size:0.75rem;color:#888;margin-bottom:8px">Range 2 (High Hue)</div>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap">
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>H</span><input type="range" min="0" max="180" data-param="red_h_min2" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="180" data-param="red_h_max2" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>S</span><input type="range" min="0" max="255" data-param="red_s_min2" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="red_s_max2" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>V</span><input type="range" min="0" max="255" data-param="red_v_min2" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="red_v_max2" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Green sliders -->
+                <div id="sliders-green" class="hsv-sliders" style="display:none">
+                    <div style="display:flex;gap:12px;flex-wrap:wrap">
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>H</span><input type="range" min="0" max="180" data-param="green_h_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="180" data-param="green_h_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>S</span><input type="range" min="0" max="255" data-param="green_s_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="green_s_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>V</span><input type="range" min="0" max="255" data-param="green_v_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="green_v_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Magenta sliders -->
+                <div id="sliders-magenta" class="hsv-sliders" style="display:none">
+                    <div style="display:flex;gap:12px;flex-wrap:wrap">
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>H</span><input type="range" min="0" max="180" data-param="magenta_h_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="180" data-param="magenta_h_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>S</span><input type="range" min="0" max="255" data-param="magenta_s_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="magenta_s_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>V</span><input type="range" min="0" max="255" data-param="magenta_v_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="magenta_v_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="hsv-status" style="font-size:0.75rem;color:#888;margin-top:8px"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WorldState bird's eye overlay -->
+    <div id="ws-overlay" style="
+        display:none;
+        position:fixed;
+        top:0;left:0;right:0;bottom:0;
+        background:rgba(0,0,0,0.5);
+        z-index:1000;
+        padding:30px;
+        overflow:auto;
+    " onclick="if(event.target===this)closeWorldstateOverlay()">
+        <div style="
+            max-width:700px;
+            margin:0 auto;
+            background:#fff;
+            border-radius:12px;
+            padding:24px;
+            position:relative;
+            box-shadow:0 4px 20px rgba(0,0,0,0.15);
+        ">
+            <button onclick="closeWorldstateOverlay()" style="
+                position:absolute;top:12px;right:16px;
+                background:none;border:none;font-size:1.5rem;
+                cursor:pointer;color:#666;
+            ">&#x2715;</button>
+
+            <h2 style="margin:0 0 20px;color:#444;font-weight:400">WorldState Bird's Eye</h2>
+            <img id="overlay-ws-birdseye" style="width:100%;border-radius:6px;background:#111" />
+        </div>
+    </div>
+
+    <!-- WorldState camera overlay -->
+    <div id="ws-camera-overlay" style="
+        display:none;
+        position:fixed;
+        top:0;left:0;right:0;bottom:0;
+        background:rgba(0,0,0,0.5);
+        z-index:1000;
+        padding:30px;
+        overflow:auto;
+    " onclick="if(event.target===this)closeWorldstateCameraOverlay()">
+        <div style="
+            max-width:960px;
+            margin:0 auto;
+            background:#fff;
+            border-radius:12px;
+            padding:24px;
+            position:relative;
+            box-shadow:0 4px 20px rgba(0,0,0,0.15);
+        ">
+            <button onclick="closeWorldstateCameraOverlay()" style="
+                position:absolute;top:12px;right:16px;
+                background:none;border:none;font-size:1.5rem;
+                cursor:pointer;color:#666;
+            ">&#x2715;</button>
+
+            <h2 style="margin:0 0 20px;color:#444;font-weight:400">Fusion Camera View</h2>
+            <div style="display:flex;gap:16px;flex-wrap:wrap">
+                <div style="flex:2;min-width:400px">
+                    <div style="font-size:0.8rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                        Camera + WorldState Overlay
+                    </div>
+                    <img id="overlay-ws-camera" style="width:100%;border-radius:6px;background:#e8e8e8" />
+                </div>
+                <div style="flex:1;min-width:250px">
+                    <div style="font-size:0.8rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
+                        Bird's Eye
+                    </div>
+                    <img id="overlay-ws-camera-birdseye" style="width:100%;border-radius:6px;background:#111" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ── WorldState polling ────────────────────────────────────
+        function pollWorldState() {
+            fetch('/api/worldstate').then(r => r.json()).then(data => {
+                // Walls
+                document.getElementById('left-wall').textContent =
+                    data.walls.left !== null ? data.walls.left + 'mm' : '--';
+                document.getElementById('right-wall').textContent =
+                    data.walls.right !== null ? data.walls.right + 'mm' : '--';
+                document.getElementById('front-wall').textContent =
+                    data.walls.front !== null ? data.walls.front + 'mm' : '--';
+                document.getElementById('corridor').textContent =
+                    data.corridor_width !== null ? data.corridor_width + 'mm' : '--';
+
+                // Corner
+                document.getElementById('corner-ahead').textContent =
+                    data.corner_ahead || '--';
+
+                // Pillars
+                const pc = document.getElementById('pillars-container');
+                if (data.pillars.length === 0) {
+                    pc.textContent = '--';
+                } else {
+                    pc.innerHTML = data.pillars.map(p =>
+                        '<div class="pillar" style="margin:2px 0">' +
+                        '<span class="pillar-dot ' + p.color + '"></span>' +
+                        '<span>' + p.distance + 'mm</span>' +
+                        '</div>'
+                    ).join('');
+                }
+
+                // Decision / control values
+                document.getElementById('state').textContent = data.state || '--';
+                document.getElementById('direction').textContent = data.direction || '--';
+                document.getElementById('encoder').textContent =
+                    data.encoder_pos ? data.encoder_pos.toLocaleString() : '0';
+
+                // Lap is also in /api/status, but worldstate has it too
+                if (data.lap !== undefined) {
+                    document.getElementById('lap').textContent = data.lap + ' / 3';
+                }
+            }).catch(() => {});
+        }
+
+        setInterval(pollWorldState, 500);
+        pollWorldState();
+
+        // ── Auto mode ────────────────────────────────────────────────
+        let autoRunning = false;
+
+        function toggleAuto() {
+            if (autoRunning) {
+                fetch('/api/auto/stop', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'})
+                    .then(r => r.json()).then(data => {
+                        if (data.ok) updateAutoUI(false);
+                    }).catch(() => {});
+            } else {
+                fetch('/api/auto/start', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'})
+                    .then(r => r.json()).then(data => {
+                        if (data.ok) updateAutoUI(true);
+                        else if (data.error) alert(data.error);
+                    }).catch(() => {});
+            }
+        }
+
+        function updateAutoUI(running) {
+            autoRunning = running;
+            const btn = document.getElementById('auto-btn');
+            const txt = document.getElementById('auto-btn-text');
+            if (running) {
+                btn.style.background = '#d63031';
+                txt.textContent = 'Stop Robot';
+            } else {
+                btn.style.background = '#00b894';
+                txt.textContent = 'Start Robot';
+            }
+        }
+
+        // ── Challenge mode toggle ─────────────────────────────────
+        let currentMode = 'obstacle';
+
+        function toggleMode() {
+            const newMode = currentMode === 'obstacle' ? 'open' : 'obstacle';
+            fetch('/api/mode', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({mode: newMode})
+            }).then(r => r.json()).then(data => {
+                if (data.ok) {
+                    currentMode = data.mode;
+                    updateModeUI();
+                    // Reload all slider values since params changed
+                    loadAllParams();
+                }
+            }).catch(() => {});
+        }
+
+        function updateModeUI() {
+            const display = document.getElementById('mode-display');
+            const box = document.getElementById('mode-box');
+            display.textContent = currentMode.toUpperCase();
+            if (currentMode === 'open') {
+                display.style.color = '#00b894';
+                box.style.borderColor = '#00b894';
+            } else {
+                display.style.color = '#6c5ce7';
+                box.style.borderColor = '#6c5ce7';
+            }
+        }
+
+        function loadAllParams() {
+            fetch('/api/params').then(r => r.json()).then(data => {
+                if (data.challenge_mode) {
+                    currentMode = data.challenge_mode;
+                    updateModeUI();
+                }
+                if (data.auto_normal_speed !== undefined && data.auto_slow_speed !== undefined) {
+                    document.getElementById('base-speed-display').textContent =
+                        data.auto_normal_speed + ' / ' + data.auto_slow_speed;
+                }
+                if (data.avoid_steer_min !== undefined && data.avoid_steer_max !== undefined) {
+                    document.getElementById('avoid-steer-display').textContent =
+                        data.avoid_steer_min + ' / ' + data.avoid_steer_max;
+                }
+                if (data.corner_threshold !== undefined && data.corner_exit_threshold !== undefined) {
+                    document.getElementById('corner-display').textContent =
+                        data.corner_threshold + ' / ' + data.corner_exit_threshold;
+                }
+                if (data.recovery_trigger_frames !== undefined && data.recovery_reverse_frames !== undefined && data.recovery_reverse_speed !== undefined) {
+                    document.getElementById('recovery-display').textContent =
+                        data.recovery_trigger_frames + ' / ' + data.recovery_reverse_frames + ' / ' + data.recovery_reverse_speed;
+                }
+            }).catch(() => {});
+        }
+
+        // Load mode on startup
+        loadAllParams();
+
+        // ── Status polling (encoder, speed, steering from motor) ────
+        function pollStatus() {
+            fetch('/api/status').then(r => r.json()).then(data => {
+                document.getElementById('encoder').textContent =
+                    (data.encoder || 0).toLocaleString();
+                document.getElementById('speed').textContent = data.speed || 0;
+                document.getElementById('steering').textContent = data.steering + '\u00B0';
+                document.getElementById('ticks-per-sec').textContent = data.ticks_per_sec || 0;
+                document.getElementById('rpm').textContent = data.rpm || 0;
+
+                const cms = data.speed_cm_s || 0;
+                document.getElementById('speed-cms').innerHTML =
+                    cms.toFixed(1) + ' <span style="font-size:0.7rem;color:#888">cm/s</span>';
+
+                const dist = data.distance_cm || 0;
+                document.getElementById('distance').innerHTML =
+                    (dist > 100 ? (dist / 100).toFixed(2) + ' <span style="font-size:0.7rem;color:#888">m</span>'
+                                : dist.toFixed(0) + ' <span style="font-size:0.7rem;color:#888">cm</span>');
+
+                // Sync auto button state
+                if (data.auto !== undefined && data.auto !== autoRunning) {
+                    updateAutoUI(data.auto);
+                }
+            }).catch(() => {});
+        }
+
+        setInterval(pollStatus, 500);
+        pollStatus();
+
+        // ── Base speed control ─────────────────────────────────────
+        function toggleSpeedControl() {
+            const panel = document.getElementById('speed-control-panel');
+            if (panel.style.display === 'none') {
+                // Fetch current params to sync sliders
+                fetch('/api/params').then(r => r.json()).then(data => {
+                    if (data.auto_normal_speed !== undefined) {
+                        document.getElementById('normal-speed-slider').value = data.auto_normal_speed;
+                        document.getElementById('normal-speed-val').textContent = data.auto_normal_speed;
+                    }
+                    if (data.auto_slow_speed !== undefined) {
+                        document.getElementById('slow-speed-slider').value = data.auto_slow_speed;
+                        document.getElementById('slow-speed-val').textContent = data.auto_slow_speed;
+                    }
+                }).catch(() => {});
+                panel.style.display = '';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function onSpeedSlider() {
+            const normal = parseInt(document.getElementById('normal-speed-slider').value);
+            const slow = parseInt(document.getElementById('slow-speed-slider').value);
+            document.getElementById('normal-speed-val').textContent = normal;
+            document.getElementById('slow-speed-val').textContent = slow;
+            document.getElementById('base-speed-display').textContent = normal + ' / ' + slow;
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({auto_normal_speed: normal, auto_slow_speed: slow})
+            }).catch(() => {});
+        }
+
+        function saveSpeedParams(btn) {
+            const normal = parseInt(document.getElementById('normal-speed-slider').value);
+            const slow = parseInt(document.getElementById('slow-speed-slider').value);
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({auto_normal_speed: normal, auto_slow_speed: slow, _save: true})
+            }).then(() => {
+                btn.textContent = 'Saved!';
+                btn.style.background = '#00b894';
+                setTimeout(() => { btn.textContent = 'Save'; btn.style.background = '#6c5ce7'; }, 1500);
+            }).catch(() => {});
+        }
+
+        // Initial param load handled by loadAllParams() above
+
+        // ── Avoidance steering control ───────────────────────────
+        function toggleAvoidControl() {
+            const panel = document.getElementById('avoid-control-panel');
+            if (panel.style.display === 'none') {
+                fetch('/api/params').then(r => r.json()).then(data => {
+                    if (data.avoid_steer_min !== undefined) {
+                        document.getElementById('avoid-min-slider').value = data.avoid_steer_min;
+                        document.getElementById('avoid-min-val').textContent = data.avoid_steer_min;
+                    }
+                    if (data.avoid_steer_max !== undefined) {
+                        document.getElementById('avoid-max-slider').value = data.avoid_steer_max;
+                        document.getElementById('avoid-max-val').textContent = data.avoid_steer_max;
+                    }
+                    if (data.blocking_angle !== undefined) {
+                        document.getElementById('avoid-blocking-slider').value = data.blocking_angle;
+                        document.getElementById('avoid-blocking-val').textContent = data.blocking_angle;
+                    }
+                }).catch(() => {});
+                panel.style.display = '';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function onAvoidSlider() {
+            const min = parseInt(document.getElementById('avoid-min-slider').value);
+            const max = parseInt(document.getElementById('avoid-max-slider').value);
+            const blocking = parseInt(document.getElementById('avoid-blocking-slider').value);
+            document.getElementById('avoid-min-val').textContent = min;
+            document.getElementById('avoid-max-val').textContent = max;
+            document.getElementById('avoid-blocking-val').textContent = blocking;
+            document.getElementById('avoid-steer-display').textContent = min + ' / ' + max;
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({avoid_steer_min: min, avoid_steer_max: max, blocking_angle: blocking})
+            }).catch(() => {});
+        }
+
+        function saveAvoidParams(btn) {
+            const min = parseInt(document.getElementById('avoid-min-slider').value);
+            const max = parseInt(document.getElementById('avoid-max-slider').value);
+            const blocking = parseInt(document.getElementById('avoid-blocking-slider').value);
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({avoid_steer_min: min, avoid_steer_max: max, blocking_angle: blocking, _save: true})
+            }).then(() => {
+                btn.textContent = 'Saved!';
+                btn.style.background = '#00b894';
+                setTimeout(() => { btn.textContent = 'Save'; btn.style.background = '#6c5ce7'; }, 1500);
+            }).catch(() => {});
+        }
+
+        // ── Corner control ──────────────────────────────────────
+        function toggleCornerControl() {
+            const panel = document.getElementById('corner-control-panel');
+            if (panel.style.display === 'none') {
+                fetch('/api/params').then(r => r.json()).then(data => {
+                    const fields = {
+                        'corner-threshold': 'corner_threshold',
+                        'corner-exit': 'corner_exit_threshold',
+                        'corner-turn': 'corner_turn_offset',
+                        'corner-speed': 'corner_speed',
+                        'corner-frames': 'corner_min_frames',
+                    };
+                    for (const [id, param] of Object.entries(fields)) {
+                        if (data[param] !== undefined) {
+                            document.getElementById(id + '-slider').value = data[param];
+                            document.getElementById(id + '-val').textContent = data[param];
+                        }
+                    }
+                }).catch(() => {});
+                panel.style.display = '';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function _readCornerParams() {
+            return {
+                corner_threshold: parseInt(document.getElementById('corner-threshold-slider').value),
+                corner_exit_threshold: parseInt(document.getElementById('corner-exit-slider').value),
+                corner_turn_offset: parseInt(document.getElementById('corner-turn-slider').value),
+                corner_speed: parseInt(document.getElementById('corner-speed-slider').value),
+                corner_min_frames: parseInt(document.getElementById('corner-frames-slider').value),
+            };
+        }
+
+        function onCornerSlider() {
+            const p = _readCornerParams();
+            document.getElementById('corner-threshold-val').textContent = p.corner_threshold;
+            document.getElementById('corner-exit-val').textContent = p.corner_exit_threshold;
+            document.getElementById('corner-turn-val').textContent = p.corner_turn_offset;
+            document.getElementById('corner-speed-val').textContent = p.corner_speed;
+            document.getElementById('corner-frames-val').textContent = p.corner_min_frames;
+            document.getElementById('corner-display').textContent = p.corner_threshold + ' / ' + p.corner_exit_threshold;
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(p)
+            }).catch(() => {});
+        }
+
+        function saveCornerParams(btn) {
+            const p = _readCornerParams();
+            p._save = true;
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(p)
+            }).then(() => {
+                btn.textContent = 'Saved!';
+                btn.style.background = '#00b894';
+                setTimeout(() => { btn.textContent = 'Save'; btn.style.background = '#6c5ce7'; }, 1500);
+            }).catch(() => {});
+        }
+
+        // ── Recovery control ────────────────────────────────────
+        function toggleRecoveryControl() {
+            const panel = document.getElementById('recovery-control-panel');
+            if (panel.style.display === 'none') {
+                fetch('/api/params').then(r => r.json()).then(data => {
+                    const fields = {
+                        'recovery-trigger': 'recovery_trigger_frames',
+                        'recovery-reverse': 'recovery_reverse_frames',
+                        'recovery-speed': 'recovery_reverse_speed',
+                    };
+                    for (const [id, param] of Object.entries(fields)) {
+                        if (data[param] !== undefined) {
+                            document.getElementById(id + '-slider').value = data[param];
+                            document.getElementById(id + '-val').textContent = data[param];
+                        }
+                    }
+                    if (data.recovery_escalate !== undefined) {
+                        document.getElementById('recovery-escalate').checked = data.recovery_escalate;
+                    }
+                }).catch(() => {});
+                panel.style.display = '';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function _readRecoveryParams() {
+            return {
+                recovery_trigger_frames: parseInt(document.getElementById('recovery-trigger-slider').value),
+                recovery_reverse_frames: parseInt(document.getElementById('recovery-reverse-slider').value),
+                recovery_reverse_speed: parseInt(document.getElementById('recovery-speed-slider').value),
+                recovery_escalate: document.getElementById('recovery-escalate').checked,
+            };
+        }
+
+        function onRecoverySlider() {
+            const p = _readRecoveryParams();
+            document.getElementById('recovery-trigger-val').textContent = p.recovery_trigger_frames;
+            document.getElementById('recovery-reverse-val').textContent = p.recovery_reverse_frames;
+            document.getElementById('recovery-speed-val').textContent = p.recovery_reverse_speed;
+            document.getElementById('recovery-display').textContent =
+                p.recovery_trigger_frames + ' / ' + p.recovery_reverse_frames + ' / ' + p.recovery_reverse_speed;
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(p)
+            }).catch(() => {});
+        }
+
+        function saveRecoveryParams(btn) {
+            const p = _readRecoveryParams();
+            p._save = true;
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(p)
+            }).then(() => {
+                btn.textContent = 'Saved!';
+                btn.style.background = '#00b894';
+                setTimeout(() => { btn.textContent = 'Save'; btn.style.background = '#6c5ce7'; }, 1500);
+            }).catch(() => {});
+        }
+
+        // ── Pi system info (only shown on Raspberry Pi) ───────────
+        function pollSystem() {
+            fetch('/api/system').then(r => r.json()).then(data => {
+                if (Object.keys(data).length === 0) return; // Not a Pi
+
+                document.getElementById('pi-system').style.display = '';
+
+                if (data.cpu_temp !== undefined) {
+                    document.getElementById('pi-temp').textContent = data.cpu_temp + '\u00B0C';
+                }
+
+                if (data.undervoltage_now !== undefined) {
+                    const el = document.getElementById('pi-power');
+                    if (data.undervoltage_now) {
+                        el.textContent = 'UNDERVOLT';
+                        el.style.color = '#d63031';
+                    } else if (data.undervoltage_occurred) {
+                        el.textContent = 'OK (was low)';
+                        el.style.color = '#e17055';
+                    } else {
+                        el.textContent = 'OK';
+                        el.style.color = '#00b894';
+                    }
+                }
+
+                // PMIC input voltage
+                if (data.pmic_ext5v !== undefined) {
+                    const v = data.pmic_ext5v;
+                    const el = document.getElementById('pi-voltage');
+                    document.getElementById('pi-voltage-row').style.display = '';
+                    el.textContent = v.toFixed(2) + 'V';
+                    el.style.color = v < 4.7 ? '#d63031' : v < 4.9 ? '#e17055' : '#00b894';
+                }
+
+                // PMIC total current draw
+                if (data.pmic_total_current !== undefined) {
+                    const a = data.pmic_total_current;
+                    document.getElementById('pi-current-row').style.display = '';
+                    document.getElementById('pi-current').textContent = a.toFixed(2) + 'A';
+                }
+            }).catch(() => {});
+        }
+
+        setInterval(pollSystem, 2000);
+        pollSystem();
+
+        // ── Stream management ────────────────────────────────────
+        // Browsers limit to 6 concurrent HTTP/1.1 connections per origin.
+        // The architecture page has 4 always-on MJPEG streams. Opening an
+        // overlay adds more. To keep fetch() (params, status) working,
+        // we pause background streams when an overlay opens.
+
+        function pauseBackgroundStreams() {
+            document.getElementById('ws-birdseye').src = '';
+            document.getElementById('ws-camera').src = '';
+            document.getElementById('lidar-view').src = '';
+            document.getElementById('camera-view').src = '';
+        }
+
+        function resumeBackgroundStreams() {
+            document.getElementById('ws-birdseye').src = '/stream/worldstate';
+            document.getElementById('ws-camera').src = '/stream/worldstate/camera';
+            document.getElementById('lidar-view').src = '/stream/lidar';
+            document.getElementById('camera-view').src = '/stream/camera';
+        }
+
+        // ── WorldState overlays ───────────────────────────────────
+        function openWorldstateOverlay() {
+            pauseBackgroundStreams();
+            document.getElementById('ws-overlay').style.display = 'block';
+            document.getElementById('overlay-ws-birdseye').src = '/stream/worldstate';
+        }
+        function closeWorldstateOverlay() {
+            document.getElementById('ws-overlay').style.display = 'none';
+            document.getElementById('overlay-ws-birdseye').src = '';
+            resumeBackgroundStreams();
+        }
+        function openWorldstateCameraOverlay() {
+            pauseBackgroundStreams();
+            document.getElementById('ws-camera-overlay').style.display = 'block';
+            document.getElementById('overlay-ws-camera').src = '/stream/worldstate/camera';
+            document.getElementById('overlay-ws-camera-birdseye').src = '/stream/worldstate';
+        }
+        function closeWorldstateCameraOverlay() {
+            document.getElementById('ws-camera-overlay').style.display = 'none';
+            document.getElementById('overlay-ws-camera').src = '';
+            document.getElementById('overlay-ws-camera-birdseye').src = '';
+            resumeBackgroundStreams();
+        }
+
+        // ── LIDAR overlay ───────────────────────────────────────
+        function openLidarOverlay() {
+            pauseBackgroundStreams();
+            document.getElementById('lidar-overlay').style.display = 'block';
+            document.getElementById('overlay-lidar').src = '/stream/lidar';
+            document.getElementById('overlay-lidar-raw').src = '/stream/lidar/raw';
+            // Load current params from server
+            fetch('/api/lidar/params').then(r => r.json()).then(data => {
+                if (!data.error) {
+                    document.getElementById('lidar-distance').value = data.max_distance;
+                    document.getElementById('lidar-distance-val').textContent = data.max_distance;
+                    document.getElementById('lidar-angle').value = data.angle;
+                    document.getElementById('lidar-angle-val').textContent = data.angle;
+                    document.getElementById('lidar-quality').value = data.min_quality;
+                    document.getElementById('lidar-quality-val').textContent = data.min_quality;
+                }
+            }).catch(() => {});
+            // Load instant mode state
+            fetch('/api/params').then(r => r.json()).then(data => {
+                if (data.lidar_instant !== undefined) {
+                    document.getElementById('lidar-instant').checked = data.lidar_instant;
+                }
+            }).catch(() => {});
+        }
+
+        function closeLidarOverlay() {
+            document.getElementById('lidar-overlay').style.display = 'none';
+            document.getElementById('overlay-lidar').src = '';
+            document.getElementById('overlay-lidar-raw').src = '';
+            resumeBackgroundStreams();
+        }
+
+        let lidarParamTimer = null;
+        function lidarParamChanged() {
+            const dist = document.getElementById('lidar-distance');
+            const angle = document.getElementById('lidar-angle');
+            const qual = document.getElementById('lidar-quality');
+            document.getElementById('lidar-distance-val').textContent = dist.value;
+            document.getElementById('lidar-angle-val').textContent = angle.value;
+            document.getElementById('lidar-quality-val').textContent = qual.value;
+
+            // Debounce: send after 150ms of no changes
+            clearTimeout(lidarParamTimer);
+            lidarParamTimer = setTimeout(() => {
+                fetch('/api/lidar/params', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        max_distance: parseInt(dist.value),
+                        angle: parseInt(angle.value),
+                        min_quality: parseInt(qual.value),
+                    })
+                }).catch(() => {});
+            }, 150);
+        }
+
+        function lidarInstantChanged() {
+            const checked = document.getElementById('lidar-instant').checked;
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({lidar_instant: checked})
+            }).catch(() => {});
+        }
+
+        function lidarSave(btn) {
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    lidar_max_distance: parseInt(document.getElementById('lidar-distance').value),
+                    lidar_display_angle: parseInt(document.getElementById('lidar-angle').value),
+                    lidar_min_quality: parseInt(document.getElementById('lidar-quality').value),
+                    lidar_instant: document.getElementById('lidar-instant').checked,
+                    _save: true
+                })
+            }).then(() => {
+                btn.textContent = 'Saved!';
+                btn.style.background = '#00b894';
+                setTimeout(() => { btn.textContent = 'Save'; btn.style.background = '#6c5ce7'; }, 1500);
+            }).catch(() => {});
+        }
+
+        // ── Camera overlay ──────────────────────────────────────
+        let currentColorTab = 'red';
+        let hsvParamTimer = null;
+        let hsvDefaults = null;  // Stored on first load for reset
+
+        function openCameraOverlay() {
+            pauseBackgroundStreams();
+            document.getElementById('camera-overlay').style.display = 'block';
+            document.getElementById('overlay-camera').src = '/stream/camera';
+            document.getElementById('overlay-red').src = '/stream/camera/red';
+            document.getElementById('overlay-green').src = '/stream/camera/green';
+            document.getElementById('overlay-magenta').src = '/stream/camera/magenta';
+            loadHsvParams();
+        }
+
+        function closeCameraOverlay() {
+            document.getElementById('camera-overlay').style.display = 'none';
+            document.getElementById('overlay-camera').src = '';
+            document.getElementById('overlay-red').src = '';
+            document.getElementById('overlay-green').src = '';
+            document.getElementById('overlay-magenta').src = '';
+            resumeBackgroundStreams();
+        }
+
+        function selectColorTab(color) {
+            currentColorTab = color;
+            const colors = {red: '#d63031', green: '#00b894', magenta: '#a855f7'};
+            ['red', 'green', 'magenta'].forEach(c => {
+                const btn = document.getElementById('tab-' + c);
+                const panel = document.getElementById('sliders-' + c);
+                if (c === color) {
+                    btn.style.background = colors[c];
+                    btn.style.color = '#fff';
+                    panel.style.display = '';
+                } else {
+                    btn.style.background = 'transparent';
+                    btn.style.color = colors[c];
+                    panel.style.display = 'none';
+                }
+            });
+        }
+
+        function loadHsvParams() {
+            fetch('/api/params').then(r => r.json()).then(data => {
+                if (data.error) return;
+                if (!hsvDefaults) hsvDefaults = {...data};
+
+                // Set all slider values and their display spans
+                document.querySelectorAll('.hsv-sliders input[data-param]').forEach(input => {
+                    const key = input.getAttribute('data-param');
+                    if (data[key] !== undefined) {
+                        input.value = data[key];
+                        // Update the span right after this input
+                        const sv = input.nextElementSibling;
+                        if (sv && sv.classList.contains('sv')) {
+                            sv.textContent = data[key];
+                        }
+                    }
+                });
+
+                // Min area
+                if (data.min_contour_area !== undefined) {
+                    document.getElementById('hsv-min-area').value = data.min_contour_area;
+                    document.getElementById('hsv-min-area-val').textContent = data.min_contour_area;
+                }
+            }).catch(() => {});
+        }
+
+        function hsvParamChanged() {
+            // Update display values
+            document.querySelectorAll('.hsv-sliders input[data-param]').forEach(input => {
+                const sv = input.nextElementSibling;
+                if (sv && sv.classList.contains('sv')) {
+                    sv.textContent = input.value;
+                }
+            });
+            document.getElementById('hsv-min-area-val').textContent =
+                document.getElementById('hsv-min-area').value;
+
+            // Debounce: send after 100ms of no changes
+            clearTimeout(hsvParamTimer);
+            hsvParamTimer = setTimeout(() => {
+                const params = {};
+                document.querySelectorAll('.hsv-sliders input[data-param]').forEach(input => {
+                    params[input.getAttribute('data-param')] = parseInt(input.value);
+                });
+                params.min_contour_area = parseInt(document.getElementById('hsv-min-area').value);
+
+                fetch('/api/params', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(params)
+                }).then(() => {
+                    document.getElementById('hsv-status').textContent = 'Applied';
+                    setTimeout(() => {
+                        document.getElementById('hsv-status').textContent = '';
+                    }, 1500);
+                }).catch(() => {});
+            }, 100);
+        }
+
+        function hsvSave() {
+            const params = {_save: true};
+            document.querySelectorAll('.hsv-sliders input[data-param]').forEach(input => {
+                params[input.getAttribute('data-param')] = parseInt(input.value);
+            });
+            params.min_contour_area = parseInt(document.getElementById('hsv-min-area').value);
+
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(params)
+            }).then(() => {
+                document.getElementById('hsv-status').textContent = 'Saved to params.json';
+                document.getElementById('hsv-status').style.color = '#00b894';
+                setTimeout(() => {
+                    document.getElementById('hsv-status').textContent = '';
+                    document.getElementById('hsv-status').style.color = '#888';
+                }, 3000);
+            }).catch(() => {});
+        }
+
+        function hsvReset() {
+            if (!hsvDefaults) return;
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(hsvDefaults)
+            }).then(() => {
+                loadHsvParams();
+                document.getElementById('hsv-status').textContent = 'Reset to initial values';
+                setTimeout(() => {
+                    document.getElementById('hsv-status').textContent = '';
+                }, 2000);
+            }).catch(() => {});
+        }
+
+        // ── Manual control overlay (REST API) ─────────────────────
+        const mcSpeedSlider = document.getElementById('mc-speed');
+        const mcSpeedValue = document.getElementById('mc-speed-value');
+        const mcStatus = document.getElementById('mc-status');
+        const MC_STEER_LEFT = 10;
+        const MC_STEER_RIGHT = 180;
+        const MC_STEER_CENTER = 90;
+        let mcStatusTimer = null;
+
+        mcSpeedSlider.oninput = () => { mcSpeedValue.textContent = mcSpeedSlider.value; };
+
+        function mcDrive(speed, steering) {
+            // Fire-and-forget: don't await to avoid race conditions
+            // between rapid press/release. Keepalive thread reads latest values.
+            fetch('/api/drive', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({speed, steering})
+            }).then(res => res.json()).then(data => {
+                if (data.ok) {
+                    mcStatus.textContent = speed === 0 && steering === 90 ? 'Ready' : 'Motor OK';
+                    mcStatus.style.color = speed === 0 && steering === 90 ? '#888' : '#00b894';
+                } else {
+                    mcStatus.textContent = data.error || 'Error';
+                    mcStatus.style.color = '#d63031';
+                }
+            }).catch(() => {
+                mcStatus.textContent = 'Offline';
+                mcStatus.style.color = '#d63031';
+            });
+        }
+
+        function mcStop() {
+            fetch('/api/stop', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: '{}'
+            }).then(() => {
+                mcStatus.textContent = 'STOPPED';
+                mcStatus.style.color = '#e17055';
+            }).catch(() => {
+                mcStatus.textContent = 'Offline';
+                mcStatus.style.color = '#d63031';
+            });
+        }
+
+        function mcRelease()  { mcDrive(0, MC_STEER_CENTER); }
+
+        // Direction toggle: FWD or REV
+        let mcReverse = false;
+
+        function mcToggleReverse() {
+            mcReverse = !mcReverse;
+            const btn = document.getElementById('btn-reverse-toggle');
+            if (mcReverse) {
+                btn.textContent = 'REV';
+                btn.style.background = '#6c5ce7';
+                btn.style.color = '#fff';
+            } else {
+                btn.textContent = 'FWD';
+                btn.style.background = '#f0f0f0';
+                btn.style.color = '#6c5ce7';
+            }
+        }
+
+        // Multi-touch support: track which buttons are held (mirrors keysDown for keyboard)
+        const touchesDown = {};
+
+        function mcSendFromTouches() {
+            const spd = parseInt(mcSpeedSlider.value);
+            const dir = mcReverse ? -1 : 1;
+            let speed = 0, steer = MC_STEER_CENTER;
+            if (touchesDown['btn-fwd'])   speed = spd * dir;
+            if (touchesDown['btn-bwd'])   speed = -spd * dir;
+            if (touchesDown['btn-left'])  steer = MC_STEER_LEFT;
+            if (touchesDown['btn-right']) steer = MC_STEER_RIGHT;
+            // If only left/right, drive in current direction
+            if (speed === 0 && steer !== MC_STEER_CENTER) speed = spd * dir;
+            mcDrive(speed, steer);
+        }
+
+        function bindButton(id) {
+            const el = document.getElementById(id);
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); touchesDown[id] = true; mcSendFromTouches(); });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); delete touchesDown[id]; mcSendFromTouches(); });
+            el.addEventListener('touchcancel', (e) => { e.preventDefault(); delete touchesDown[id]; mcSendFromTouches(); });
+            el.addEventListener('mousedown', (e) => { e.preventDefault(); touchesDown[id] = true; mcSendFromTouches(); });
+        }
+        // Global mouseup catches release even if cursor moved off button
+        document.addEventListener('mouseup', () => {
+            if (Object.keys(touchesDown).length) {
+                for (const k in touchesDown) delete touchesDown[k];
+                mcSendFromTouches();
+            }
+        });
+        bindButton('btn-fwd');
+        bindButton('btn-bwd');
+        bindButton('btn-left');
+        bindButton('btn-right');
+
+        function openManualControl() {
+            pauseBackgroundStreams();
+            document.getElementById('manual-overlay').style.display = 'block';
+            document.getElementById('mc-camera').src = '/stream/camera';
+            mcStatus.textContent = 'Ready';
+            mcStatus.style.color = '#888';
+        }
+
+        function closeManualControl() {
+            document.getElementById('manual-overlay').style.display = 'none';
+            document.getElementById('mc-camera').src = '';
+            mcStop();
+            resumeBackgroundStreams();
+        }
+
+        // ── Keyboard shortcuts (combines simultaneous keys) ─────
+        const keysDown = {};
+
+        function mcSendFromKeys() {
+            const spd = parseInt(mcSpeedSlider.value);
+            const dir = mcReverse ? -1 : 1;
+            let speed = 0, steer = MC_STEER_CENTER;
+            if (keysDown['ArrowUp'])    speed = spd * dir;
+            if (keysDown['ArrowDown'])  speed = -spd * dir;
+            if (keysDown['ArrowLeft'])  steer = MC_STEER_LEFT;
+            if (keysDown['ArrowRight']) steer = MC_STEER_RIGHT;
+            // If only left/right, drive in current direction
+            if (speed === 0 && steer !== MC_STEER_CENTER) speed = spd * dir;
+            mcDrive(speed, steer);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeLidarOverlay();
+                closeCameraOverlay();
+                closeManualControl();
+                closeWorldstateOverlay();
+                closeWorldstateCameraOverlay();
+                return;
+            }
+
+            // Motor controls only when manual overlay is open
+            if (document.getElementById('manual-overlay').style.display === 'none') return;
+
+            if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+                keysDown[e.key] = true;
+                mcSendFromKeys();
+            } else if (e.key === ' ') {
+                e.preventDefault();
+                mcStop();
+            } else if (e.key === 'r' || e.key === 'R') {
+                e.preventDefault();
+                mcToggleReverse();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (document.getElementById('manual-overlay').style.display === 'none') return;
+
+            if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+                keysDown[e.key] = false;
+                // If any arrow still held, send combined; otherwise release
+                if (keysDown['ArrowUp'] || keysDown['ArrowDown'] || keysDown['ArrowLeft'] || keysDown['ArrowRight']) {
+                    mcSendFromKeys();
+                } else {
+                    mcRelease();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

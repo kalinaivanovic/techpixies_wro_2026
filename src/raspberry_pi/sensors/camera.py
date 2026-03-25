@@ -1,26 +1,17 @@
 """
-Camera - capture frames and detect colored objects.
+Camera sensor - IMX219-120 with OpenCV color detection.
 
-Stage 3: Now reads HSV ranges from Parameters instead of hardcoded constants.
-
-What changed from Stage 2:
-  - Constructor takes a `params` object
-  - _range() method builds HSV arrays from params (not constants)
-  - _detect_blobs() reads min_area from params
-  - If you change params at runtime, the NEXT frame uses new values!
-
-This is possible because Python reads self.params.red_h_min each frame.
-There is no caching. So the web server can update params between frames,
-and the camera thread sees the new values immediately.
-
-Key insight: the Camera doesn't OWN the parameters. It just holds a
-REFERENCE to the same object that the web server modifies.
-
-    params = Parameters()
-    camera = Camera(params)   # camera.params IS the same object
-    params.red_h_min = 5      # camera sees the change next frame
+Detects colored blobs:
+- Red (pillars to pass on RIGHT)
+- Green (pillars to pass on LEFT)
+- Magenta (parking markers)
+- Orange (floor section boundary lines)
+- Blue (floor section boundary lines)
 """
 
+from __future__ import annotations
+
+import logging
 import threading
 import time
 from dataclasses import dataclass
@@ -28,137 +19,232 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-from params import Parameters
+from config import (
+    CAMERA_INDEX,
+    CAMERA_FOV,
+)
 
-# Camera settings
-CAMERA_INDEX = 0
-CAMERA_WIDTH = 640
-CAMERA_HEIGHT = 480
-CAMERA_FOV = 120  # degrees (wide-angle lens)
+logger = logging.getLogger(__name__)
 
 
 @dataclass
 class ColorBlob:
-    """A detected colored region in the camera frame."""
+    """Detected colored region."""
 
-    color: str      # "red", "green", "magenta"
-    angle: float    # Degrees from center (-60 to +60 for 120 FOV)
-    x: int          # Pixel x (center of blob)
-    y: int          # Pixel y (center of blob)
-    width: int      # Bounding box width in pixels
-    height: int     # Bounding box height in pixels
-    area: int       # Contour area in pixels
+    color: str  # "red", "green", "magenta"
+    angle: float  # Degrees from center (-60 to +60 for 120 FOV)
+    x: int  # Pixel x (center)
+    y: int  # Pixel y (center)
+    width: int  # Pixel width
+    height: int  # Pixel height
+    area: int  # Pixel area
 
 
 class Camera:
     """
-    Captures frames and detects colored objects.
+    IMX219-120 camera with color detection.
 
-    Reads all detection settings from a shared Parameters object,
-    so HSV ranges can be tuned at runtime without restarting.
+    Runs capture in background thread, provides latest detections.
 
     Usage:
         params = Parameters.load()
-        camera = Camera(params)
+        camera = Camera(params=params)
         camera.start()
 
         blobs = camera.get_blobs()
-        jpeg = camera.get_jpeg_frame()
-
-        # Change a parameter at runtime:
-        params.red_h_min = 5
-        # Next frame will use the new value!
+        for blob in blobs:
+            print(f"{blob.color} at {blob.angle}°")
 
         camera.stop()
     """
 
-    def __init__(self, params: Parameters):
-        # Store REFERENCE to shared params (not a copy!)
+    # IMX219 full-sensor binned mode (2x2 binning, 4:3, full FOV)
+    # picamera2 ISP downscales from this to the requested output size
+    SENSOR_FULL_WIDTH = 1640
+    SENSOR_FULL_HEIGHT = 1232
+
+    def __init__(self, params, index: int = CAMERA_INDEX, fov: float = CAMERA_FOV):
         self.params = params
+        self.index = index
+        self.fov = fov
+        # Actual capture dimensions (set on start from params)
+        self.width = params.camera_width
+        self.height = params.camera_height
 
         self._cap: cv2.VideoCapture | None = None
+        self._picam = None
+        self._use_picamera = False
         self._running = False
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
 
-        self._frame: np.ndarray | None = None
+        # Latest detection results
         self._blobs: list[ColorBlob] = []
+        self._frame: np.ndarray | None = None
+        self._timestamp: float = 0.0
 
     @property
     def is_running(self) -> bool:
         return self._running
 
     def start(self) -> bool:
-        """Open camera and start capturing in background."""
+        """Start camera capture in background thread.
+
+        Tries picamera2 (CSI camera) first, falls back to OpenCV VideoCapture.
+        """
         if self._running:
+            logger.warning("Camera already running")
             return True
 
-        self._cap = cv2.VideoCapture(CAMERA_INDEX)
-        self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
-        self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+        # Read resolution from params (may have changed since __init__)
+        self.width = self.params.camera_width
+        self.height = self.params.camera_height
 
-        if not self._cap.isOpened():
-            print("ERROR: Failed to open camera")
-            return False
+        try:
+            # Try picamera2 first (Raspberry Pi CSI camera)
+            from picamera2 import Picamera2
+
+            self._picam = Picamera2()
+            self._picam.configure(self._picam.create_preview_configuration(
+                main={"format": "RGB888", "size": (self.width, self.height)},
+                # Force full-sensor capture (2x2 binned) to preserve full FOV.
+                # Without this, picamera2 may pick a center-crop sensor mode.
+                sensor={"output_size": (self.SENSOR_FULL_WIDTH, self.SENSOR_FULL_HEIGHT)},
+            ))
+            self._picam.start()
+            self._use_picamera = True
+            logger.info(
+                f"Camera started (picamera2 CSI): {self.width}x{self.height} "
+                f"from sensor {self.SENSOR_FULL_WIDTH}x{self.SENSOR_FULL_HEIGHT}"
+            )
+
+        except (ImportError, Exception) as e:
+            # Fall back to OpenCV VideoCapture (USB webcam)
+            logger.info(f"picamera2 not available ({e}), trying OpenCV VideoCapture")
+            self._picam = None
+            self._use_picamera = False
+
+            self._cap = cv2.VideoCapture(self.index)
+            self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+            self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+
+            if not self._cap.isOpened():
+                logger.error("Failed to open camera")
+                return False
+
+            logger.info(f"Camera started (OpenCV): {self.width}x{self.height}")
 
         self._running = True
         self._thread = threading.Thread(target=self._capture_loop, daemon=True)
         self._thread.start()
-
-        print(f"Camera started: {CAMERA_WIDTH}x{CAMERA_HEIGHT}")
         return True
 
     def stop(self):
         """Stop camera capture."""
         self._running = False
+
         if self._thread:
             self._thread.join(timeout=2.0)
             self._thread = None
+
+        if hasattr(self, '_picam') and self._picam:
+            self._picam.stop()
+            self._picam = None
+
         if self._cap:
             self._cap.release()
             self._cap = None
-        print("Camera stopped")
+
+        logger.info("Camera stopped")
+
+    def restart(self):
+        """Restart camera with current params (e.g., after resolution change)."""
+        self.stop()
+        self.start()
 
     def get_blobs(self) -> list[ColorBlob]:
-        """Get all detected color blobs."""
+        """Get latest detected color blobs."""
         with self._lock:
             return self._blobs.copy()
 
     def get_frame(self) -> np.ndarray | None:
-        """Get latest frame (BGR format)."""
+        """Get latest camera frame (BGR format)."""
         with self._lock:
             if self._frame is not None:
                 return self._frame.copy()
             return None
 
-    def get_jpeg_frame(self, quality: int = 80) -> bytes | None:
-        """Get frame with bounding boxes as JPEG bytes."""
+    def get_timestamp(self) -> float:
+        """Get timestamp of latest frame."""
+        with self._lock:
+            return self._timestamp
+
+    def get_red_blobs(self) -> list[ColorBlob]:
+        """Get red blobs (pillars to pass on RIGHT)."""
+        return [b for b in self.get_blobs() if b.color == "red"]
+
+    def get_green_blobs(self) -> list[ColorBlob]:
+        """Get green blobs (pillars to pass on LEFT)."""
+        return [b for b in self.get_blobs() if b.color == "green"]
+
+    def get_magenta_blobs(self) -> list[ColorBlob]:
+        """Get magenta blobs (parking markers)."""
+        return [b for b in self.get_blobs() if b.color == "magenta"]
+
+    def get_jpeg_frame(self, draw_boxes: bool = True, quality: int = 80) -> bytes | None:
+        """Get latest frame as JPEG bytes, optionally with bounding boxes drawn.
+
+        Args:
+            draw_boxes: If True, draw bounding boxes around detected blobs.
+            quality: JPEG compression quality (0-100).
+
+        Returns:
+            JPEG bytes, or None if no frame available.
+        """
         with self._lock:
             if self._frame is None:
                 return None
             frame = self._frame.copy()
             blobs = self._blobs.copy()
 
-        colors = {
-            "red": (0, 0, 255),
-            "green": (0, 255, 0),
-            "magenta": (255, 0, 255),
-        }
-        for blob in blobs:
-            bgr = colors.get(blob.color, (255, 255, 255))
-            x = blob.x - blob.width // 2
-            y = blob.y - blob.height // 2
-            cv2.rectangle(frame, (x, y), (x + blob.width, y + blob.height), bgr, 2)
-            cv2.putText(
-                frame, f"{blob.color} {blob.angle:.0f}deg",
-                (x, y - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, bgr, 1,
-            )
+        if draw_boxes:
+            colors = {
+                "red": (0, 0, 255),
+                "green": (0, 255, 0),
+                "magenta": (255, 0, 255),
+                "orange": (0, 165, 255),
+                "blue": (255, 0, 0),
+            }
+            for blob in blobs:
+                bgr = colors.get(blob.color, (255, 255, 255))
+                x = blob.x - blob.width // 2
+                y = blob.y - blob.height // 2
+                cv2.rectangle(frame, (x, y), (x + blob.width, y + blob.height), bgr, 2)
+                cv2.putText(
+                    frame,
+                    f"{blob.color} {blob.angle:.0f}deg",
+                    (x, y - 8),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    bgr,
+                    1,
+                )
 
         ret, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, quality])
-        return jpeg.tobytes() if ret else None
+        if not ret:
+            return None
+        return jpeg.tobytes()
 
     def get_jpeg_mask(self, color: str, quality: int = 80) -> bytes | None:
-        """Get binary color mask as JPEG bytes."""
+        """Get color mask as JPEG bytes.
+
+        Args:
+            color: "red", "green", or "magenta".
+            quality: JPEG compression quality (0-100).
+
+        Returns:
+            JPEG bytes of the binary mask, or None if no frame available.
+        """
         with self._lock:
             if self._frame is None:
                 return None
@@ -167,109 +253,165 @@ class Camera:
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
         if color == "red":
-            lower1, upper1 = self._range("red1")
-            lower2, upper2 = self._range("red2")
-            mask = cv2.bitwise_or(
-                cv2.inRange(hsv, lower1, upper1),
-                cv2.inRange(hsv, lower2, upper2),
-            )
+            rl1, ru1 = self._range("red1")
+            rl2, ru2 = self._range("red2")
+            mask1 = cv2.inRange(hsv, rl1, ru1)
+            mask2 = cv2.inRange(hsv, rl2, ru2)
+            mask = cv2.bitwise_or(mask1, mask2)
         elif color == "green":
-            lower, upper = self._range("green")
-            mask = cv2.inRange(hsv, lower, upper)
+            gl, gu = self._range("green")
+            mask = cv2.inRange(hsv, gl, gu)
         elif color == "magenta":
-            lower, upper = self._range("magenta")
-            mask = cv2.inRange(hsv, lower, upper)
+            ml, mu = self._range("magenta")
+            mask = cv2.inRange(hsv, ml, mu)
+        elif color == "orange":
+            ol, ou = self._range("orange")
+            mask = cv2.inRange(hsv, ol, ou)
+        elif color == "blue":
+            bl, bu = self._range("blue")
+            mask = cv2.inRange(hsv, bl, bu)
         else:
             return None
 
         ret, jpeg = cv2.imencode(".jpg", mask, [cv2.IMWRITE_JPEG_QUALITY, quality])
-        return jpeg.tobytes() if ret else None
+        if not ret:
+            return None
+        return jpeg.tobytes()
 
-    # ── Private methods ──────────────────────────────────────────
+    def _capture_loop(self):
+        """Background capture and detection thread."""
+        while self._running:
+            try:
+                if self._use_picamera:
+                    # picamera2 with "RGB888" format returns BGR in memory
+                    # (libcamera naming convention), so no conversion needed
+                    frame = self._picam.capture_array()
+                else:
+                    ret, frame = self._cap.read()
+                    if not ret:
+                        continue
+
+                # Detect colored blobs
+                blobs = self._detect_blobs(frame)
+
+                with self._lock:
+                    self._blobs = blobs
+                    self._frame = frame
+                    self._timestamp = time.time()
+
+                # Yield CPU to other threads (keepalive, web server)
+                time.sleep(0.005)
+
+            except Exception as e:
+                if self._running:
+                    logger.error(f"Camera capture error: {e}")
 
     def _range(self, color: str):
-        """Build (lower, upper) HSV numpy arrays from params.
-
-        THIS is the key difference from Stage 2.
-        Stage 2: used hardcoded constants like RED_LOWER1 = np.array([0, 100, 100])
-        Stage 3: reads from self.params every time this is called.
-
-        Since _detect_blobs() calls _range() every frame, any changes
-        to params take effect on the very next frame.
-        """
+        """Get (lower, upper) HSV numpy arrays for a color from Parameters."""
         p = self.params
         if color == "red1":
-            return (np.array([p.red_h_min, p.red_s_min, p.red_v_min]),
-                    np.array([p.red_h_max, p.red_s_max, p.red_v_max]))
+            return (np.array([p.red_h_min1, p.red_s_min1, p.red_v_min1]),
+                    np.array([p.red_h_max1, p.red_s_max1, p.red_v_max1]))
         if color == "red2":
             return (np.array([p.red_h_min2, p.red_s_min2, p.red_v_min2]),
                     np.array([p.red_h_max2, p.red_s_max2, p.red_v_max2]))
         if color == "green":
             return (np.array([p.green_h_min, p.green_s_min, p.green_v_min]),
                     np.array([p.green_h_max, p.green_s_max, p.green_v_max]))
-        # magenta
+        if color == "orange":
+            return (np.array([p.orange_h_min, p.orange_s_min, p.orange_v_min]),
+                    np.array([p.orange_h_max, p.orange_s_max, p.orange_v_max]))
+        if color == "blue":
+            return (np.array([p.blue_h_min, p.blue_s_min, p.blue_v_min]),
+                    np.array([p.blue_h_max, p.blue_s_max, p.blue_v_max]))
         return (np.array([p.magenta_h_min, p.magenta_s_min, p.magenta_v_min]),
                 np.array([p.magenta_h_max, p.magenta_s_max, p.magenta_v_max]))
 
-    def _capture_loop(self):
-        """Background thread: grab frames and run detection."""
-        while self._running:
-            ret, frame = self._cap.read()
-            if not ret:
-                continue
-            blobs = self._detect_blobs(frame)
-            with self._lock:
-                self._frame = frame
-                self._blobs = blobs
-
     def _detect_blobs(self, frame: np.ndarray) -> list[ColorBlob]:
-        """Detect colored blobs using current params."""
+        """Detect colored blobs in frame."""
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         blobs = []
 
-        # Read min_area from params (not a constant!)
-        min_area = self.params.min_area
+        min_area = self.params.min_contour_area
 
-        # Red (two ranges)
+        # Detect red (two ranges because red wraps around hue)
         rl1, ru1 = self._range("red1")
         rl2, ru2 = self._range("red2")
-        mask_red = cv2.bitwise_or(
-            cv2.inRange(hsv, rl1, ru1),
-            cv2.inRange(hsv, rl2, ru2),
-        )
+        mask_red1 = cv2.inRange(hsv, rl1, ru1)
+        mask_red2 = cv2.inRange(hsv, rl2, ru2)
+        mask_red = cv2.bitwise_or(mask_red1, mask_red2)
         blobs.extend(self._find_blobs(mask_red, "red", min_area))
 
-        # Green
+        # Detect green
         gl, gu = self._range("green")
-        blobs.extend(self._find_blobs(cv2.inRange(hsv, gl, gu), "green", min_area))
+        mask_green = cv2.inRange(hsv, gl, gu)
+        blobs.extend(self._find_blobs(mask_green, "green", min_area))
 
-        # Magenta
+        # Detect magenta
         ml, mu = self._range("magenta")
-        blobs.extend(self._find_blobs(cv2.inRange(hsv, ml, mu), "magenta", min_area))
+        mask_magenta = cv2.inRange(hsv, ml, mu)
+        blobs.extend(self._find_blobs(mask_magenta, "magenta", min_area))
+
+        # Detect orange (floor lines)
+        ol, ou = self._range("orange")
+        mask_orange = cv2.inRange(hsv, ol, ou)
+        blobs.extend(self._find_blobs(mask_orange, "orange", min_area))
+
+        # Detect blue (floor lines)
+        bl, bu = self._range("blue")
+        mask_blue = cv2.inRange(hsv, bl, bu)
+        blobs.extend(self._find_blobs(mask_blue, "blue", min_area))
 
         return blobs
 
     def _find_blobs(self, mask: np.ndarray, color: str, min_area: int) -> list[ColorBlob]:
         """Find blobs in a binary mask."""
         blobs = []
+
+        # Clean up mask
         kernel = np.ones((5, 5), np.uint8)
         mask = cv2.erode(mask, kernel, iterations=1)
         mask = cv2.dilate(mask, kernel, iterations=2)
+
+        # Find contours
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         for contour in contours:
             area = cv2.contourArea(contour)
             if area < min_area:
                 continue
+
             x, y, w, h = cv2.boundingRect(contour)
             center_x = x + w // 2
             center_y = y + h // 2
+
+            # Convert pixel X to angle from center
             angle = self._pixel_to_angle(center_x)
-            blobs.append(ColorBlob(color, angle, center_x, center_y, w, h, int(area)))
+
+            blobs.append(
+                ColorBlob(
+                    color=color,
+                    angle=angle,
+                    x=center_x,
+                    y=center_y,
+                    width=w,
+                    height=h,
+                    area=int(area),
+                )
+            )
 
         return blobs
 
     def _pixel_to_angle(self, pixel_x: int) -> float:
         """Convert X pixel position to angle from center."""
-        normalized = (pixel_x - CAMERA_WIDTH / 2) / (CAMERA_WIDTH / 2)
-        return normalized * (CAMERA_FOV / 2)
+        normalized = (pixel_x - self.width / 2) / (self.width / 2)
+        return normalized * (self.fov / 2)
+
+    def __enter__(self):
+        """Context manager entry."""
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.stop()
