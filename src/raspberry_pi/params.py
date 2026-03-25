@@ -15,12 +15,18 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-PARAMS_FILE = Path(__file__).parent / "params.json"
+PARAMS_DIR = Path(__file__).parent
+PARAMS_FILE = PARAMS_DIR / "params.json"  # Default / last used
+PARAMS_OPEN_FILE = PARAMS_DIR / "params_open.json"
+PARAMS_OBSTACLE_FILE = PARAMS_DIR / "params_obstacle.json"
 
 
 @dataclass
 class Parameters:
     """Runtime tunable parameters."""
+
+    # Challenge mode: "open" (no pillars) or "obstacle" (pillars + parking)
+    challenge_mode: str = "obstacle"
 
     # Red range 1 (low hue end: 0-10)
     red_h_min1: int = 0
@@ -105,6 +111,7 @@ class Parameters:
     recovery_trigger_frames: int = 75  # frames in CORNER before triggering recovery (~1.5s)
     recovery_reverse_frames: int = 25  # frames to reverse (~0.5s)
     recovery_reverse_speed: int = 40  # reverse speed (0-100)
+    recovery_escalate: bool = True  # True = each attempt reverses longer, False = fixed duration
 
     # LIDAR filtering
     lidar_min_distance: int = 60  # mm, ignore readings closer (robot body)
@@ -123,11 +130,41 @@ class Parameters:
                 except (TypeError, ValueError):
                     logger.warning(f"Invalid value for {key}: {value}")
 
+    def _mode_file(self) -> Path:
+        """Get the file path for the current challenge mode."""
+        if self.challenge_mode == "open":
+            return PARAMS_OPEN_FILE
+        return PARAMS_OBSTACLE_FILE
+
     def save(self):
-        """Persist to JSON file."""
+        """Persist to mode-specific JSON file and default file."""
+        data = asdict(self)
+        # Save to mode-specific file
+        mode_file = self._mode_file()
+        with open(mode_file, "w") as f:
+            json.dump(data, f, indent=2)
+        # Also save as default (last used)
         with open(PARAMS_FILE, "w") as f:
-            json.dump(asdict(self), f, indent=2)
-        logger.info(f"Parameters saved to {PARAMS_FILE}")
+            json.dump(data, f, indent=2)
+        logger.info(f"Parameters saved to {mode_file} and {PARAMS_FILE}")
+
+    def load_mode(self, mode: str):
+        """Switch to a different challenge mode, loading its preset."""
+        mode_file = PARAMS_OPEN_FILE if mode == "open" else PARAMS_OBSTACLE_FILE
+        if mode_file.exists():
+            try:
+                with open(mode_file) as f:
+                    data = json.load(f)
+                self.update(**data)
+                self.challenge_mode = mode
+                logger.info(f"Switched to {mode} mode from {mode_file}")
+            except Exception as e:
+                logger.warning(f"Failed to load {mode_file}: {e}, keeping current params")
+                self.challenge_mode = mode
+        else:
+            # No preset for this mode yet — just switch the flag
+            self.challenge_mode = mode
+            logger.info(f"Switched to {mode} mode (no preset file, using current params)")
 
     @classmethod
     def load(cls) -> Parameters:

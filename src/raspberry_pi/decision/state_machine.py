@@ -98,6 +98,7 @@ class StateMachine:
         self._recovery_reverse_frames = 25  # How long to reverse
         self._recovery_trigger_frames = 75  # Corner frames before recovery triggers
         self._recovery_reverse_speed = 40
+        self._recovery_escalate = True  # Escalate reverse duration per attempt
         self._recovery_attempts = 0  # Count retries for this corner
 
         # Corner suppression after pillar avoidance
@@ -149,6 +150,7 @@ class StateMachine:
             self._recovery_trigger_frames = self.params.recovery_trigger_frames
             self._recovery_reverse_frames = self.params.recovery_reverse_frames
             self._recovery_reverse_speed = self.params.recovery_reverse_speed
+            self._recovery_escalate = self.params.recovery_escalate
 
         # Update direction from track map
         if self.direction is None and track_map.direction:
@@ -230,8 +232,9 @@ class StateMachine:
             if self._corner_suppressed_frames > 0:
                 self._corner_suppressed_frames -= 1
 
-            # Priority 1: Pillar detected
-            p = world.blocking_pillar(blocking_angle)
+            # Priority 1: Pillar detected (obstacle mode only)
+            is_open = self.params and self.params.challenge_mode == "open"
+            p = None if is_open else world.blocking_pillar(blocking_angle)
             if p:
                 self.state = RobotState.AVOID_PILLAR
                 self._avoiding_pillar = p.color
@@ -245,7 +248,7 @@ class StateMachine:
             # Priority 2: Corner detected
             # Suppressed after pillar avoidance OR if pillars still visible nearby
             elif (self._corner_suppressed_frames <= 0
-                  and not world.blocking_pillar(blocking_angle)
+                  and (is_open or not world.blocking_pillar(blocking_angle))
                   and world.is_corner_approaching):
                 self.state = RobotState.CORNER
                 self._corner_frames = 0
@@ -264,8 +267,8 @@ class StateMachine:
                     f"({self._corner_direction}, track={self.direction}, detector={world.corner_ahead})"
                 )
 
-            # Priority 3: Parking (lap 3 + parking visible)
-            elif self.lap_count >= 3 and world.is_parking_visible:
+            # Priority 3: Parking (obstacle mode only, lap 3 + parking visible)
+            elif not is_open and self.lap_count >= 3 and world.is_parking_visible:
                 self.state = RobotState.PARKING
                 if self.parking is not None:
                     self.parking.reset()
@@ -315,8 +318,9 @@ class StateMachine:
 
         elif self.state == RobotState.CORNER:
             self._corner_frames += 1
-            # Pillar overrides corner (higher priority)
-            p = world.blocking_pillar(blocking_angle)
+            # Pillar overrides corner (obstacle mode only)
+            is_open = self.params and self.params.challenge_mode == "open"
+            p = None if is_open else world.blocking_pillar(blocking_angle)
             if p:
                 self.state = RobotState.AVOID_PILLAR
                 self._avoiding_pillar = p.color
@@ -360,8 +364,11 @@ class StateMachine:
 
         elif self.state == RobotState.RECOVERY:
             self._recovery_frames += 1
-            # Escalate: more reverse time on repeated attempts
-            reverse_needed = self._recovery_reverse_frames * min(self._recovery_attempts, 3)
+            # Fixed or escalating reverse duration
+            if self._recovery_escalate:
+                reverse_needed = self._recovery_reverse_frames * min(self._recovery_attempts, 3)
+            else:
+                reverse_needed = self._recovery_reverse_frames
             if self._recovery_frames >= reverse_needed:
                 # Done reversing — return to the state that triggered recovery
                 return_to = self._recovery_return_state

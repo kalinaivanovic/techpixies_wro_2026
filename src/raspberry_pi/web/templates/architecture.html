@@ -247,6 +247,10 @@
                     <div class="box-label" style="color:#fff">Override</div>
                     <div class="box-value" style="color:#fff;font-size:1.1rem">Manual Control</div>
                 </div>
+                <div id="mode-box" class="box" style="cursor:pointer;border:2px solid #6c5ce7" onclick="toggleMode()">
+                    <div class="box-label">Challenge</div>
+                    <div class="box-value" id="mode-display" style="font-size:1.1rem;color:#6c5ce7">OBSTACLE</div>
+                </div>
                 <div id="pi-system" class="box" style="display:none">
                     <div class="box-label">Pi System</div>
                     <div style="font-family:Consolas,monospace;font-size:0.85rem;line-height:1.6">
@@ -478,6 +482,13 @@
                             <input type="range" id="recovery-speed-slider" min="20" max="100" step="5" value="40"
                                 style="width:100%;margin-top:4px"
                                 oninput="onRecoverySlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;cursor:pointer;display:flex;align-items:center;gap:6px">
+                                <input type="checkbox" id="recovery-escalate" checked onchange="onRecoverySlider()">
+                                <span style="text-transform:uppercase;letter-spacing:1px">Escalate</span>
+                            </label>
+                            <span style="font-size:0.65rem;color:#aaa">Each attempt reverses longer (1x, 2x, 3x frames)</span>
                         </div>
                         <button onclick="saveRecoveryParams(this)" style="
                             width:100%;padding:6px;border:none;border-radius:6px;
@@ -984,6 +995,66 @@
             }
         }
 
+        // ── Challenge mode toggle ─────────────────────────────────
+        let currentMode = 'obstacle';
+
+        function toggleMode() {
+            const newMode = currentMode === 'obstacle' ? 'open' : 'obstacle';
+            fetch('/api/mode', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({mode: newMode})
+            }).then(r => r.json()).then(data => {
+                if (data.ok) {
+                    currentMode = data.mode;
+                    updateModeUI();
+                    // Reload all slider values since params changed
+                    loadAllParams();
+                }
+            }).catch(() => {});
+        }
+
+        function updateModeUI() {
+            const display = document.getElementById('mode-display');
+            const box = document.getElementById('mode-box');
+            display.textContent = currentMode.toUpperCase();
+            if (currentMode === 'open') {
+                display.style.color = '#00b894';
+                box.style.borderColor = '#00b894';
+            } else {
+                display.style.color = '#6c5ce7';
+                box.style.borderColor = '#6c5ce7';
+            }
+        }
+
+        function loadAllParams() {
+            fetch('/api/params').then(r => r.json()).then(data => {
+                if (data.challenge_mode) {
+                    currentMode = data.challenge_mode;
+                    updateModeUI();
+                }
+                if (data.auto_normal_speed !== undefined && data.auto_slow_speed !== undefined) {
+                    document.getElementById('base-speed-display').textContent =
+                        data.auto_normal_speed + ' / ' + data.auto_slow_speed;
+                }
+                if (data.avoid_steer_min !== undefined && data.avoid_steer_max !== undefined) {
+                    document.getElementById('avoid-steer-display').textContent =
+                        data.avoid_steer_min + ' / ' + data.avoid_steer_max;
+                }
+                if (data.corner_threshold !== undefined && data.corner_exit_threshold !== undefined) {
+                    document.getElementById('corner-display').textContent =
+                        data.corner_threshold + ' / ' + data.corner_exit_threshold;
+                }
+                if (data.recovery_trigger_frames !== undefined && data.recovery_reverse_frames !== undefined && data.recovery_reverse_speed !== undefined) {
+                    document.getElementById('recovery-display').textContent =
+                        data.recovery_trigger_frames + ' / ' + data.recovery_reverse_frames + ' / ' + data.recovery_reverse_speed;
+                }
+            }).catch(() => {});
+        }
+
+        // Load mode on startup
+        loadAllParams();
+
         // ── Status polling (encoder, speed, steering from motor) ────
         function pollStatus() {
             fetch('/api/status').then(r => r.json()).then(data => {
@@ -1061,25 +1132,7 @@
             }).catch(() => {});
         }
 
-        // Load initial speed/avoid/corner values
-        fetch('/api/params').then(r => r.json()).then(data => {
-            if (data.auto_normal_speed !== undefined && data.auto_slow_speed !== undefined) {
-                document.getElementById('base-speed-display').textContent =
-                    data.auto_normal_speed + ' / ' + data.auto_slow_speed;
-            }
-            if (data.avoid_steer_min !== undefined && data.avoid_steer_max !== undefined) {
-                document.getElementById('avoid-steer-display').textContent =
-                    data.avoid_steer_min + ' / ' + data.avoid_steer_max;
-            }
-            if (data.corner_threshold !== undefined && data.corner_exit_threshold !== undefined) {
-                document.getElementById('corner-display').textContent =
-                    data.corner_threshold + ' / ' + data.corner_exit_threshold;
-            }
-            if (data.recovery_trigger_frames !== undefined && data.recovery_reverse_frames !== undefined && data.recovery_reverse_speed !== undefined) {
-                document.getElementById('recovery-display').textContent =
-                    data.recovery_trigger_frames + ' / ' + data.recovery_reverse_frames + ' / ' + data.recovery_reverse_speed;
-            }
-        }).catch(() => {});
+        // Initial param load handled by loadAllParams() above
 
         // ── Avoidance steering control ───────────────────────────
         function toggleAvoidControl() {
@@ -1215,6 +1268,9 @@
                             document.getElementById(id + '-val').textContent = data[param];
                         }
                     }
+                    if (data.recovery_escalate !== undefined) {
+                        document.getElementById('recovery-escalate').checked = data.recovery_escalate;
+                    }
                 }).catch(() => {});
                 panel.style.display = '';
             } else {
@@ -1227,6 +1283,7 @@
                 recovery_trigger_frames: parseInt(document.getElementById('recovery-trigger-slider').value),
                 recovery_reverse_frames: parseInt(document.getElementById('recovery-reverse-slider').value),
                 recovery_reverse_speed: parseInt(document.getElementById('recovery-speed-slider').value),
+                recovery_escalate: document.getElementById('recovery-escalate').checked,
             };
         }
 

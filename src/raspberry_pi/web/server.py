@@ -86,6 +86,9 @@ class WebServer:
         self.app.router.add_get("/api/params", self.api_params_get)
         self.app.router.add_post("/api/params", self.api_params_set)
 
+        # Challenge mode switch
+        self.app.router.add_post("/api/mode", self.api_mode_switch)
+
         # Camera restart (apply resolution changes)
         self.app.router.add_post("/api/camera/restart", self.api_camera_restart)
 
@@ -516,6 +519,24 @@ class WebServer:
             self.controller.params.save()
 
         return web.json_response(self.controller.params.to_dict())
+
+    async def api_mode_switch(self, request):
+        """POST /api/mode - Switch challenge mode. Body: {"mode": "open"} or {"mode": "obstacle"}."""
+        if not self.controller or not hasattr(self.controller, 'params') or not self.controller.params:
+            return web.json_response({"error": "Parameters not available"}, status=404)
+
+        data = await request.json()
+        mode = data.get("mode", "").lower()
+        if mode not in ("open", "obstacle"):
+            return web.json_response({"error": "mode must be 'open' or 'obstacle'"}, status=400)
+
+        # Save current params to current mode's file before switching
+        self.controller.params.save()
+
+        # Load the target mode's preset
+        self.controller.params.load_mode(mode)
+
+        return web.json_response({"ok": True, "mode": mode, "params": self.controller.params.to_dict()})
 
     async def api_camera_restart(self, request):
         """POST /api/camera/restart - Restart camera with current params."""
