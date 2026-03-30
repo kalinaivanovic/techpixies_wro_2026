@@ -103,8 +103,20 @@ class TrackMap:
 
     def update(self, world: WorldState) -> None:
         """Update map with current perception. Call each frame."""
-        # Line tracking runs on ALL laps (needed for lap counting)
+        # These run on ALL laps (needed for lap counting and direction)
         self._update_lines(world)
+        self._update_corners(world)
+
+        # Detect direction from first corner (runs until determined)
+        if self.direction is None and world.corner_ahead:
+            self.direction = "CW" if world.corner_ahead == "RIGHT" else "CCW"
+            logger.info(f"TrackMap: Direction = {self.direction}")
+
+        # Cross-validate direction from lines vs corners
+        if self.line_direction and self.direction and self.line_direction != self.direction:
+            logger.warning(
+                f"TrackMap: Direction mismatch! Corner={self.direction} Lines={self.line_direction}"
+            )
 
         # Mapping-specific updates only run during first lap
         if not self._first_lap:
@@ -117,20 +129,6 @@ class TrackMap:
             self._lap_start = encoder
             self._section_start = encoder
             logger.info(f"TrackMap: Starting at encoder {encoder}")
-
-        # Detect direction from first corner
-        if self.direction is None and world.corner_ahead:
-            self.direction = "CW" if world.corner_ahead == "RIGHT" else "CCW"
-            logger.info(f"TrackMap: Direction = {self.direction}")
-
-        # Cross-validate direction from lines vs corners
-        if self.line_direction and self.direction and self.line_direction != self.direction:
-            logger.warning(
-                f"TrackMap: Direction mismatch! Corner={self.direction} Lines={self.line_direction}"
-            )
-
-        # Record corners
-        self._update_corners(world)
 
         # Record corridor widths
         self._update_sections(world)

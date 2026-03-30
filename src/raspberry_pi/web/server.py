@@ -233,9 +233,9 @@ class WebServer:
         return response
 
     async def stream_camera_mask(self, request):
-        """MJPEG stream of a color mask (red, green, magenta)."""
+        """MJPEG stream of a color mask (red, green, magenta, orange, blue)."""
         color = request.match_info["color"]
-        if color not in ("red", "green", "magenta"):
+        if color not in ("red", "green", "magenta", "orange", "blue"):
             return web.Response(status=404, text="Unknown color")
 
         response = web.StreamResponse()

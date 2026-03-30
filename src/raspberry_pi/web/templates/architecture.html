@@ -467,7 +467,7 @@
                     <div id="recovery-control-panel" style="display:none;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:14px">
                         <div style="margin-bottom:10px">
                             <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Trigger After: <strong id="recovery-trigger-val">75</strong> frames</label>
-                            <input type="range" id="recovery-trigger-slider" min="20" max="150" step="5" value="75"
+                            <input type="range" id="recovery-trigger-slider" min="20" max="300" step="5" value="75"
                                 style="width:100%;margin-top:4px"
                                 oninput="onRecoverySlider()">
                         </div>
@@ -740,6 +740,20 @@
                     <img id="overlay-magenta" style="width:100%;border-radius:6px;background:#e8e8e8" />
                 </div>
             </div>
+            <div style="display:flex;gap:16px;margin-top:12px">
+                <div style="flex:1">
+                    <div style="font-size:0.8rem;text-transform:uppercase;color:#e17055;letter-spacing:1px;margin-bottom:8px">
+                        Orange Mask
+                    </div>
+                    <img id="overlay-orange" style="width:100%;border-radius:6px;background:#e8e8e8" />
+                </div>
+                <div style="flex:1">
+                    <div style="font-size:0.8rem;text-transform:uppercase;color:#0984e3;letter-spacing:1px;margin-bottom:8px">
+                        Blue Mask
+                    </div>
+                    <img id="overlay-blue" style="width:100%;border-radius:6px;background:#e8e8e8" />
+                </div>
+            </div>
 
             <!-- HSV Color Calibration -->
             <div style="margin-top:24px;border-top:1px solid #e0e0e0;padding-top:20px">
@@ -762,6 +776,14 @@
                             padding:6px 16px;border-radius:6px;border:2px solid #a855f7;
                             background:transparent;color:#a855f7;cursor:pointer;font-weight:600;font-size:0.8rem;
                         ">Magenta</button>
+                        <button onclick="selectColorTab('orange')" id="tab-orange" style="
+                            padding:6px 16px;border-radius:6px;border:2px solid #e17055;
+                            background:transparent;color:#e17055;cursor:pointer;font-weight:600;font-size:0.8rem;
+                        ">Orange</button>
+                        <button onclick="selectColorTab('blue')" id="tab-blue" style="
+                            padding:6px 16px;border-radius:6px;border:2px solid #0984e3;
+                            background:transparent;color:#0984e3;cursor:pointer;font-weight:600;font-size:0.8rem;
+                        ">Blue</button>
                     </div>
 
                     <!-- Min area + buttons -->
@@ -836,6 +858,52 @@
                         <div style="flex:1;min-width:180px">
                             <div class="slider-row"><span>V</span><input type="range" min="0" max="255" data-param="magenta_v_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="magenta_v_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Orange sliders -->
+                <div id="sliders-orange" class="hsv-sliders" style="display:none">
+                    <div style="display:flex;gap:12px;flex-wrap:wrap">
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>H</span><input type="range" min="0" max="180" data-param="orange_h_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="180" data-param="orange_h_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>S</span><input type="range" min="0" max="255" data-param="orange_s_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="orange_s_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>V</span><input type="range" min="0" max="255" data-param="orange_v_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="orange_v_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                    </div>
+                    <div style="margin-top:10px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+                        <div style="font-size:0.7rem;color:#888;text-transform:uppercase">Floor Y%</div>
+                        <input type="range" id="line-y-fraction" min="0.3" max="0.9" step="0.05" value="0.6" oninput="hsvParamChanged()" style="width:100px">
+                        <span id="line-y-fraction-val" style="font-family:monospace;font-size:0.85rem;font-weight:600;min-width:30px">0.6</span>
+                        <div style="font-size:0.7rem;color:#888;text-transform:uppercase">Min Area</div>
+                        <input type="range" id="line-min-area" min="50" max="2000" step="50" value="200" oninput="hsvParamChanged()" style="width:100px">
+                        <span id="line-min-area-val" style="font-family:monospace;font-size:0.85rem;font-weight:600;min-width:30px">200</span>
+                    </div>
+                </div>
+
+                <!-- Blue sliders -->
+                <div id="sliders-blue" class="hsv-sliders" style="display:none">
+                    <div style="display:flex;gap:12px;flex-wrap:wrap">
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>H</span><input type="range" min="0" max="180" data-param="blue_h_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="180" data-param="blue_h_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>S</span><input type="range" min="0" max="255" data-param="blue_s_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="blue_s_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                        <div style="flex:1;min-width:180px">
+                            <div class="slider-row"><span>V</span><input type="range" min="0" max="255" data-param="blue_v_min" oninput="hsvParamChanged()"><span class="sv"></span> &ndash; <input type="range" min="0" max="255" data-param="blue_v_max" oninput="hsvParamChanged()"><span class="sv"></span></div>
+                        </div>
+                    </div>
+                    <div style="margin-top:10px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+                        <div style="font-size:0.7rem;color:#888;text-transform:uppercase">Floor Y%</div>
+                        <input type="range" id="line-y-fraction2" min="0.3" max="0.9" step="0.05" value="0.6" oninput="hsvParamChanged()" style="width:100px">
+                        <span id="line-y-fraction2-val" style="font-family:monospace;font-size:0.85rem;font-weight:600;min-width:30px">0.6</span>
+                        <div style="font-size:0.7rem;color:#888;text-transform:uppercase">Min Area</div>
+                        <input type="range" id="line-min-area2" min="50" max="2000" step="50" value="200" oninput="hsvParamChanged()" style="width:100px">
+                        <span id="line-min-area2-val" style="font-family:monospace;font-size:0.85rem;font-weight:600;min-width:30px">200</span>
                     </div>
                 </div>
 
@@ -1500,6 +1568,8 @@
             document.getElementById('overlay-red').src = '/stream/camera/red';
             document.getElementById('overlay-green').src = '/stream/camera/green';
             document.getElementById('overlay-magenta').src = '/stream/camera/magenta';
+            document.getElementById('overlay-orange').src = '/stream/camera/orange';
+            document.getElementById('overlay-blue').src = '/stream/camera/blue';
             loadHsvParams();
         }
 
@@ -1509,13 +1579,15 @@
             document.getElementById('overlay-red').src = '';
             document.getElementById('overlay-green').src = '';
             document.getElementById('overlay-magenta').src = '';
+            document.getElementById('overlay-orange').src = '';
+            document.getElementById('overlay-blue').src = '';
             resumeBackgroundStreams();
         }
 
         function selectColorTab(color) {
             currentColorTab = color;
-            const colors = {red: '#d63031', green: '#00b894', magenta: '#a855f7'};
-            ['red', 'green', 'magenta'].forEach(c => {
+            const colors = {red: '#d63031', green: '#00b894', magenta: '#a855f7', orange: '#e17055', blue: '#0984e3'};
+            ['red', 'green', 'magenta', 'orange', 'blue'].forEach(c => {
                 const btn = document.getElementById('tab-' + c);
                 const panel = document.getElementById('sliders-' + c);
                 if (c === color) {
@@ -1553,6 +1625,20 @@
                     document.getElementById('hsv-min-area').value = data.min_contour_area;
                     document.getElementById('hsv-min-area-val').textContent = data.min_contour_area;
                 }
+
+                // Floor line params (shown in orange/blue tabs)
+                if (data.line_y_fraction !== undefined) {
+                    ['line-y-fraction', 'line-y-fraction2'].forEach(id => {
+                        document.getElementById(id).value = data.line_y_fraction;
+                        document.getElementById(id + '-val').textContent = data.line_y_fraction;
+                    });
+                }
+                if (data.line_min_contour_area !== undefined) {
+                    ['line-min-area', 'line-min-area2'].forEach(id => {
+                        document.getElementById(id).value = data.line_min_contour_area;
+                        document.getElementById(id + '-val').textContent = data.line_min_contour_area;
+                    });
+                }
             }).catch(() => {});
         }
 
@@ -1567,6 +1653,21 @@
             document.getElementById('hsv-min-area-val').textContent =
                 document.getElementById('hsv-min-area').value;
 
+            // Sync floor line params between orange/blue tabs
+            const lyf = document.getElementById('line-y-fraction');
+            const lyf2 = document.getElementById('line-y-fraction2');
+            const lma = document.getElementById('line-min-area');
+            const lma2 = document.getElementById('line-min-area2');
+            // Whichever was changed, sync to the other
+            if (document.activeElement === lyf) { lyf2.value = lyf.value; }
+            if (document.activeElement === lyf2) { lyf.value = lyf2.value; }
+            if (document.activeElement === lma) { lma2.value = lma.value; }
+            if (document.activeElement === lma2) { lma.value = lma2.value; }
+            document.getElementById('line-y-fraction-val').textContent = lyf.value;
+            document.getElementById('line-y-fraction2-val').textContent = lyf2.value;
+            document.getElementById('line-min-area-val').textContent = lma.value;
+            document.getElementById('line-min-area2-val').textContent = lma2.value;
+
             // Debounce: send after 100ms of no changes
             clearTimeout(hsvParamTimer);
             hsvParamTimer = setTimeout(() => {
@@ -1575,6 +1676,8 @@
                     params[input.getAttribute('data-param')] = parseInt(input.value);
                 });
                 params.min_contour_area = parseInt(document.getElementById('hsv-min-area').value);
+                params.line_y_fraction = parseFloat(lyf.value);
+                params.line_min_contour_area = parseInt(lma.value);
 
                 fetch('/api/params', {
                     method: 'POST',
