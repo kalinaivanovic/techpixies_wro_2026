@@ -1644,6 +1644,7 @@
         }
 
         function hsvParamChanged() {
+            try {
             // Update display values
             document.querySelectorAll('.hsv-sliders input[data-param]').forEach(input => {
                 const sv = input.nextElementSibling;
@@ -1659,15 +1660,16 @@
             const lyf2 = document.getElementById('line-y-fraction2');
             const lma = document.getElementById('line-min-area');
             const lma2 = document.getElementById('line-min-area2');
-            // Whichever was changed, sync to the other
-            if (document.activeElement === lyf) { lyf2.value = lyf.value; }
-            if (document.activeElement === lyf2) { lyf.value = lyf2.value; }
-            if (document.activeElement === lma) { lma2.value = lma.value; }
-            if (document.activeElement === lma2) { lma.value = lma2.value; }
-            document.getElementById('line-y-fraction-val').textContent = lyf.value;
-            document.getElementById('line-y-fraction2-val').textContent = lyf2.value;
-            document.getElementById('line-min-area-val').textContent = lma.value;
-            document.getElementById('line-min-area2-val').textContent = lma2.value;
+            if (lyf && lyf2 && lma && lma2) {
+                if (document.activeElement === lyf) { lyf2.value = lyf.value; }
+                if (document.activeElement === lyf2) { lyf.value = lyf2.value; }
+                if (document.activeElement === lma) { lma2.value = lma.value; }
+                if (document.activeElement === lma2) { lma.value = lma2.value; }
+                document.getElementById('line-y-fraction-val').textContent = lyf.value;
+                document.getElementById('line-y-fraction2-val').textContent = lyf2.value;
+                document.getElementById('line-min-area-val').textContent = lma.value;
+                document.getElementById('line-min-area2-val').textContent = lma2.value;
+            }
 
             // Debounce: send after 100ms of no changes
             clearTimeout(hsvParamTimer);
@@ -1677,8 +1679,10 @@
                     params[input.getAttribute('data-param')] = parseInt(input.value);
                 });
                 params.min_contour_area = parseInt(document.getElementById('hsv-min-area').value);
-                params.line_y_fraction = parseFloat(lyf.value);
-                params.line_min_contour_area = parseInt(lma.value);
+                if (lyf && lma) {
+                    params.line_y_fraction = parseFloat(lyf.value);
+                    params.line_min_contour_area = parseInt(lma.value);
+                }
 
                 fetch('/api/params', {
                     method: 'POST',
@@ -1691,6 +1695,7 @@
                     }, 1500);
                 }).catch(() => {});
             }, 100);
+            } catch (e) { console.error('hsvParamChanged error:', e); }
         }
 
         function hsvSave() {
