@@ -95,6 +95,12 @@ class Parameters:
     auto_normal_speed: int = 60  # Speed for wall following (0-100)
     auto_slow_speed: int = 35  # Speed for avoidance/corners (0-100)
 
+    # Wall following
+    wall_follow_kp: float = 0.5  # Proportional gain for wall centering
+    wall_follow_steer_min: int = 30  # Max steering left (degrees)
+    wall_follow_steer_max: int = 150  # Max steering right (degrees)
+    pre_corner_distance: int = 1200  # mm — start slowing when front wall closer than this
+
     # Avoidance steering (degrees offset from center 90)
     avoid_steer_min: int = 45  # Minimum turn when pillar detected
     avoid_steer_max: int = 80  # Maximum turn when pillar very close

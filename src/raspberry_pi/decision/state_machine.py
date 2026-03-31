@@ -142,6 +142,10 @@ class StateMachine:
         if self.params:
             self.wall_follow.normal_speed = self.params.auto_normal_speed
             self.wall_follow.slow_speed = self.params.auto_slow_speed
+            self.wall_follow.kp = self.params.wall_follow_kp
+            self.wall_follow.steering_min = self.params.wall_follow_steer_min
+            self.wall_follow.steering_max = self.params.wall_follow_steer_max
+            self.wall_follow.pre_corner_distance = self.params.pre_corner_distance
             self.avoidance.slow_speed = self.params.auto_slow_speed
             self.avoidance.min_steer_offset = self.params.avoid_steer_min
             self.avoidance.max_steer_offset = self.params.avoid_steer_max

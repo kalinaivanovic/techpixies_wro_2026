@@ -386,6 +386,42 @@
                             background:#6c5ce7;color:#fff;font-size:0.8rem;cursor:pointer;
                         ">Save</button>
                     </div>
+                    <!-- Wall follow control -->
+                    <div class="box" style="cursor:pointer;border:2px solid #e0e0e0" onclick="toggleWallFollowControl()">
+                        <div class="box-label">Wall Follow</div>
+                        <div class="box-value" id="wf-display" style="font-size:1.1rem">0.5 / 30-150</div>
+                        <div style="font-size:0.65rem;color:#aaa;margin-top:4px">Kp / steer range &middot; click to edit</div>
+                    </div>
+                    <div id="wf-control-panel" style="display:none;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:14px">
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Kp: <strong id="wf-kp-val">0.5</strong></label>
+                            <input type="range" id="wf-kp-slider" min="0.1" max="2.0" step="0.1" value="0.5"
+                                style="width:100%;margin-top:4px"
+                                oninput="onWallFollowSlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Steer Min: <strong id="wf-steer-min-val">30</strong>&deg;</label>
+                            <input type="range" id="wf-steer-min-slider" min="0" max="80" value="30"
+                                style="width:100%;margin-top:4px"
+                                oninput="onWallFollowSlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Steer Max: <strong id="wf-steer-max-val">150</strong>&deg;</label>
+                            <input type="range" id="wf-steer-max-slider" min="100" max="180" value="150"
+                                style="width:100%;margin-top:4px"
+                                oninput="onWallFollowSlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Pre-Corner Dist: <strong id="wf-precorner-val">1200</strong>mm</label>
+                            <input type="range" id="wf-precorner-slider" min="500" max="2000" step="50" value="1200"
+                                style="width:100%;margin-top:4px"
+                                oninput="onWallFollowSlider()">
+                        </div>
+                        <button onclick="saveWallFollowParams(this)" style="
+                            width:100%;padding:6px;border:none;border-radius:6px;
+                            background:#6c5ce7;color:#fff;font-size:0.8rem;cursor:pointer;
+                        ">Save</button>
+                    </div>
                     <!-- Avoidance steering control -->
                     <div class="box" style="cursor:pointer;border:2px solid #e0e0e0" onclick="toggleAvoidControl()">
                         <div class="box-label">Avoid Steer</div>
@@ -1118,6 +1154,10 @@
                     document.getElementById('recovery-display').textContent =
                         data.recovery_trigger_frames + ' / ' + data.recovery_reverse_frames + ' / ' + data.recovery_reverse_speed;
                 }
+                if (data.wall_follow_kp !== undefined && data.wall_follow_steer_min !== undefined && data.wall_follow_steer_max !== undefined) {
+                    document.getElementById('wf-display').textContent =
+                        data.wall_follow_kp + ' / ' + data.wall_follow_steer_min + '-' + data.wall_follow_steer_max;
+                }
             }).catch(() => {});
         }
 
@@ -1202,6 +1242,68 @@
         }
 
         // Initial param load handled by loadAllParams() above
+
+        // ── Wall follow control ─────────────────────────────────
+        function toggleWallFollowControl() {
+            const panel = document.getElementById('wf-control-panel');
+            if (panel.style.display === 'none') {
+                fetch('/api/params').then(r => r.json()).then(data => {
+                    const fields = {
+                        'wf-kp': 'wall_follow_kp',
+                        'wf-steer-min': 'wall_follow_steer_min',
+                        'wf-steer-max': 'wall_follow_steer_max',
+                        'wf-precorner': 'pre_corner_distance',
+                    };
+                    for (const [id, param] of Object.entries(fields)) {
+                        if (data[param] !== undefined) {
+                            document.getElementById(id + '-slider').value = data[param];
+                            document.getElementById(id + '-val').textContent = data[param];
+                        }
+                    }
+                }).catch(() => {});
+                panel.style.display = '';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function _readWallFollowParams() {
+            return {
+                wall_follow_kp: parseFloat(document.getElementById('wf-kp-slider').value),
+                wall_follow_steer_min: parseInt(document.getElementById('wf-steer-min-slider').value),
+                wall_follow_steer_max: parseInt(document.getElementById('wf-steer-max-slider').value),
+                pre_corner_distance: parseInt(document.getElementById('wf-precorner-slider').value),
+            };
+        }
+
+        function onWallFollowSlider() {
+            const p = _readWallFollowParams();
+            document.getElementById('wf-kp-val').textContent = p.wall_follow_kp;
+            document.getElementById('wf-steer-min-val').textContent = p.wall_follow_steer_min;
+            document.getElementById('wf-steer-max-val').textContent = p.wall_follow_steer_max;
+            document.getElementById('wf-precorner-val').textContent = p.pre_corner_distance;
+            document.getElementById('wf-display').textContent =
+                p.wall_follow_kp + ' / ' + p.wall_follow_steer_min + '-' + p.wall_follow_steer_max;
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(p)
+            }).catch(() => {});
+        }
+
+        function saveWallFollowParams(btn) {
+            const p = _readWallFollowParams();
+            p._save = true;
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(p)
+            }).then(() => {
+                btn.textContent = 'Saved!';
+                btn.style.background = '#00b894';
+                setTimeout(() => { btn.textContent = 'Save'; btn.style.background = '#6c5ce7'; }, 1500);
+            }).catch(() => {});
+        }
 
         // ── Avoidance steering control ───────────────────────────
         function toggleAvoidControl() {
