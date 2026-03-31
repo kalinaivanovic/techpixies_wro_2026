@@ -141,6 +141,7 @@ class StateMachine:
         # Read parameters each time when called. Ensures that changed parameters are loaded.
         if self.params:
             self.wall_follow.normal_speed = self.params.auto_normal_speed
+            self.wall_follow.slow_speed = self.params.auto_slow_speed
             self.avoidance.slow_speed = self.params.auto_slow_speed
             self.avoidance.min_steer_offset = self.params.avoid_steer_min
             self.avoidance.max_steer_offset = self.params.avoid_steer_max

@@ -36,18 +36,27 @@ class ProportionalWallFollow(WallFollowStrategy):
     applies proportional gain to correct steering.
     """
 
-    def __init__(self, kp: float = 0.5, normal_speed: int = 60, steering_center: int = 90, min_clearance: int = 150, steering_min: int = 60, steering_max: int = 120):
+    def __init__(self, kp: float = 0.5, normal_speed: int = 60, slow_speed: int = 35, steering_center: int = 90, min_clearance: int = 150, steering_min: int = 60, steering_max: int = 120, pre_corner_distance: int = 1200):
         self.kp = kp
         self.normal_speed = normal_speed
+        self.slow_speed = slow_speed
         self.steering_center = steering_center
         self.min_clearance = min_clearance
         self.steering_min = steering_min
         self.steering_max = steering_max
+        self.pre_corner_distance = pre_corner_distance  # Start slowing at this front distance
 
     def compute(self, world: WorldState) -> tuple[int, int]:
         speed = self.normal_speed
         left = world.walls.left_distance
         right = world.walls.right_distance
+        front = world.walls.front_distance
+
+        # Pre-corner slowdown: reduce speed when approaching a wall ahead
+        if front is not None and front < self.pre_corner_distance:
+            # Linear interpolation: full speed at pre_corner_distance, slow_speed at corner_threshold
+            ratio = front / self.pre_corner_distance
+            speed = int(self.slow_speed + ratio * (self.normal_speed - self.slow_speed))
 
         if left is None and right is None:
             return speed, self.steering_center
