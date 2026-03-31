@@ -65,6 +65,7 @@ class StateMachine:
     def __init__(self, wall_follow: WallFollowStrategy = None, avoidance: AvoidanceStrategy = None, corner: CornerStrategy = None, parking: ParkingStrategy = None, params=None):
         self.state = RobotState.IDLE
         self.lap_count = 0
+        self.corner_exits = 0  # Counts successful CORNER→WALL_FOLLOW transitions
         self.target_laps = 3
         self.direction: str | None = None  # "CW" or "CCW"
         self.params = params  # Shared Parameters for runtime speed tuning
@@ -111,6 +112,7 @@ class StateMachine:
         """Start the race."""
         self.state = RobotState.WALL_FOLLOW
         self.lap_count = 0
+        self.corner_exits = 0
         self._avoiding_pillar = None
         logger.info("Race started")
 
@@ -347,20 +349,24 @@ class StateMachine:
             elif self._is_corner_cleared(world):
                 self.state = RobotState.WALL_FOLLOW
                 self._recovery_attempts = 0  # Reset for next corner
-                # Lap count: max of corner-based and line-based
-                corner_laps = track_map.corner_count // 4 if track_map.corner_count > 0 else 0
+                # Count this successful corner exit
+                self.corner_exits += 1
+                new_lap_count = self.corner_exits // 4
                 line_laps = track_map.line_lap_count
-                new_lap_count = max(corner_laps, line_laps)
+                new_lap_count = max(new_lap_count, line_laps)
                 if new_lap_count > self.lap_count:
                     self.lap_count = new_lap_count
                     logger.info(
                         f"Lap {self.lap_count} complete "
-                        f"(corners={corner_laps}, lines={line_laps})"
+                        f"(corner_exits={self.corner_exits}, lines={line_laps})"
                     )
                     if self.lap_count >= self.target_laps:
                         self.state = RobotState.DONE
                         logger.info("Race complete!")
-                logger.info("Transition: CORNER -> WALL_FOLLOW")
+                logger.info(
+                    f"Transition: CORNER -> WALL_FOLLOW "
+                    f"(corner_exits={self.corner_exits})"
+                )
 
         elif self.state == RobotState.RECOVERY:
             self._recovery_frames += 1
