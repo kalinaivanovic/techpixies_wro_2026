@@ -36,7 +36,7 @@ class ProportionalWallFollow(WallFollowStrategy):
     applies proportional gain to correct steering.
     """
 
-    def __init__(self, kp: float = 0.5, normal_speed: int = 60, slow_speed: int = 35, steering_center: int = 90, min_clearance: int = 150, steering_min: int = 60, steering_max: int = 120, pre_corner_distance: int = 1200):
+    def __init__(self, kp: float = 0.5, normal_speed: int = 60, slow_speed: int = 35, steering_center: int = 90, min_clearance: int = 150, steering_min: int = 30, steering_max: int = 150, pre_corner_distance: int = 1200):
         self.kp = kp
         self.normal_speed = normal_speed
         self.slow_speed = slow_speed
