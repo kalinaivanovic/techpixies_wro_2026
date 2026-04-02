@@ -358,7 +358,7 @@ class StateMachine:
                     if self.lap_count >= self.target_laps:
                         self.state = RobotState.DONE
                         logger.info("Race complete!")
-                self._corner_suppressed_frames = 50  # Don't re-enter corner for ~1s
+                self._corner_suppressed_frames = 150  # Don't re-enter corner for ~3s
                 logger.info(
                     f"Transition: CORNER -> WALL_FOLLOW "
                     f"(corner_exits={self.corner_exits})"
