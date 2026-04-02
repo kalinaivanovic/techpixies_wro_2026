@@ -413,11 +413,14 @@ class StateMachine:
         if front > self._corner_exit_threshold:
             return True
 
-        # Method 2: both side walls visible AND front not dangerously close
-        # Both walls visible = robot is inside a corridor, turn is complete
+        # Method 2: robot is in a corridor (both walls at corridor-like distances)
+        # AND front is above collision distance (not about to crash)
         left = world.walls.left_distance
         right = world.walls.right_distance
-        if left is not None and right is not None and front > 250:
+        wall_dist = self.params.wall_collision_distance if self.params else 250
+        if (left is not None and right is not None
+                and left < 800 and right < 800
+                and front > wall_dist):
             return True
 
         return False
