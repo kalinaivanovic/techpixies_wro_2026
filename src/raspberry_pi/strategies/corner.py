@@ -66,13 +66,33 @@ class LidarCornerDetection(CornerStrategy):
 
     def detect(self, scan: dict[int, float]) -> str | None:
         front = self._average_distance(scan, 0, self.front_window)
-
-        if front is None or front > self.threshold:
-            return None
-
-        # Corner detected — which direction?
         left = self._average_distance(scan, 270, self.side_window)
         right = self._average_distance(scan, 90, self.side_window)
+
+        # Method 1: Front wall close (original)
+        front_close = front is not None and front <= self.threshold
+
+        # Method 2: One side opens up (wall disappears or jumps far)
+        # This detects corners at longer range by seeing the L-shape
+        side_open = False
+        open_direction = None
+        if left is not None and right is not None:
+            ratio = left / right if right > 0 else 999
+            if ratio > 2.5:  # Left is much further — opening on left
+                side_open = True
+                open_direction = "LEFT"
+            elif ratio < 0.4:  # Right is much further — opening on right
+                side_open = True
+                open_direction = "RIGHT"
+
+        # Need front wall visible AND (close enough OR side opening detected)
+        if not front_close and not (side_open and front is not None and front <= self.threshold * 1.5):
+            return None
+
+        # Determine direction
+        if open_direction:
+            self._last_direction = open_direction
+            return open_direction
 
         if left is None and right is None:
             return None
@@ -85,7 +105,6 @@ class LidarCornerDetection(CornerStrategy):
 
         diff = left - right
         if abs(diff) < self.direction_margin:
-            # Too close to call — use last known direction or default RIGHT
             return self._last_direction or "RIGHT"
 
         result = "LEFT" if diff > 0 else "RIGHT"
