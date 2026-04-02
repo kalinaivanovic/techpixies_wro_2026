@@ -94,6 +94,7 @@ class StateMachine:
         self._min_corner_frames = 15  # Safety minimum frames in corner
         self._corner_exit_threshold = 1200  # mm — front must be this clear to exit
         self._corner_direction: str | None = None  # Remember turn direction
+        self._corner_min_front: float = 9999  # Track minimum front distance during turn
 
         # For recovery state (reverse-and-retry)
         self._recovery_frames = 0
@@ -256,6 +257,7 @@ class StateMachine:
                 self.state = RobotState.CORNER
                 self._corner_frames = 0
                 self._recovery_attempts = 0
+                self._corner_min_front = 9999
                 # Use track direction to determine corner direction (more reliable)
                 # CW track → all corners are RIGHT, CCW → all LEFT
                 if self.direction == "CW":
@@ -406,17 +408,25 @@ class StateMachine:
     def _is_corner_cleared(self, world: WorldState) -> bool:
         """Check if the robot has completed the corner turn.
 
-        Uses the corner entry threshold as the exit condition too.
-        If front > entry threshold, the robot is no longer facing a corner wall.
-        The min_corner_frames prevents rapid re-entry cycling.
+        Tracks minimum front distance during the turn. Once front distance
+        has increased significantly from the minimum, the robot has turned
+        past the closest point and is now facing the next section.
+        Works for both wide and narrow corridors.
         """
         front = world.walls.front_distance
         if front is None:
             return False  # Can't see front wall — still turning
-        # Exit when front is above the entry threshold
-        # (same distance that triggered the corner — if front is above it, corner is done)
-        entry_threshold = self.corner.threshold
-        return front > entry_threshold
+
+        # Track the minimum front distance during this turn
+        if front < self._corner_min_front:
+            self._corner_min_front = front
+
+        # Exit when front has increased by at least 200mm from the minimum
+        # This means the robot has turned past the closest wall point
+        if front > self._corner_min_front + 200:
+            return True
+
+        return False
 
     def _find_avoiding_pillar(self, world: WorldState):
         """Find the pillar we're currently avoiding (by color).
