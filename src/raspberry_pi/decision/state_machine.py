@@ -253,8 +253,9 @@ class StateMachine:
                 )
 
             # Priority 2: Corner detected
-            # Suppressed after recent corner exit (encoder-based) or near pillars
+            # Suppressed after recent corner exit, near pillars, or at startup
             elif (not corner_suppressed
+                  and encoder > 2000  # Don't detect corners right at startup
                   and (is_open or not world.blocking_pillar(blocking_angle))
                   and world.is_corner_approaching):
                 self.state = RobotState.CORNER
