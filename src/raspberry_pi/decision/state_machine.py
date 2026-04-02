@@ -343,7 +343,7 @@ class StateMachine:
                 self._recovery_attempts = 0  # Reset for next corner
                 # Count this corner exit only if enough distance from last one
                 encoder = world.encoder_pos
-                if abs(encoder - self._last_corner_exit_encoder) > 2000:
+                if abs(encoder - self._last_corner_exit_encoder) > 4000:
                     self.corner_exits += 1
                     self._last_corner_exit_encoder = encoder
                 new_lap_count = self.corner_exits // 4
