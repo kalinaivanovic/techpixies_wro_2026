@@ -291,7 +291,8 @@ class StateMachine:
 
             # Check if robot is about to hit wall while avoiding pillar
             front = world.walls.front_distance
-            if front is not None and front < 200 and self._avoid_frames > 10:
+            wall_collision_dist = self.params.wall_collision_distance if self.params else 350
+            if front is not None and front < wall_collision_dist and self._avoid_frames > 10:
                 self.state = RobotState.RECOVERY
                 self._recovery_frames = 0
                 self._recovery_attempts += 1
