@@ -77,6 +77,20 @@ class SensorFusion:
         # Extract wall distances (strategy)
         walls = self.wall_detection.detect_walls(scan)
 
+        # Adaptive corner threshold: scale with corridor width
+        # Wide (1000mm) → use full threshold (850mm)
+        # Narrow (600mm) → lower threshold (550mm) to avoid direction flipping
+        if self.params and walls.corridor_width is not None:
+            base = self.params.corner_threshold
+            corridor = walls.corridor_width
+            if corridor < 900:
+                # Linear scale: at 600mm corridor → 55% of base, at 900mm → 100%
+                scale = 0.55 + 0.45 * (corridor - 600) / 300
+                scale = max(0.55, min(1.0, scale))
+                self.corner.threshold = max(400, int(base * scale))
+            else:
+                self.corner.threshold = base
+
         # Detect corner (strategy)
         corner_ahead = self.corner.detect(scan)
 
