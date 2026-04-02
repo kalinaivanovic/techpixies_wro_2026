@@ -54,7 +54,7 @@ class LidarCornerDetection(CornerStrategy):
     Direction is determined by which side has more open space.
     """
 
-    def __init__(self, threshold: int = 400, slow_speed: int = 35, steering_center: int = 90, turn_offset: int = 25, front_window: int = 5, side_window: int = 15, direction_margin: float = 100):
+    def __init__(self, threshold: int = 400, slow_speed: int = 35, steering_center: int = 90, turn_offset: int = 25, front_window: int = 15, side_window: int = 15, direction_margin: float = 100, use_min: bool = True):
         self.threshold = threshold
         self.slow_speed = slow_speed
         self.steering_center = steering_center
@@ -65,7 +65,9 @@ class LidarCornerDetection(CornerStrategy):
         self._last_direction: str | None = None  # sticky direction to avoid flipping
 
     def detect(self, scan: dict[int, float]) -> str | None:
-        front = self._average_distance(scan, 0, self.front_window)
+        # Use MINIMUM distance in front window — if any ray hits a close wall, it's a corner.
+        # Average is unreliable because the corner opening mixes close wall + far opening.
+        front = self._min_distance(scan, 0, self.front_window)
 
         if front is None or front > self.threshold:
             return None
@@ -99,6 +101,17 @@ class LidarCornerDetection(CornerStrategy):
             steering = self.steering_center + self.turn_offset
 
         return self.slow_speed, steering
+
+    def _min_distance(self, scan: dict[int, float], center: int, window: int) -> float | None:
+        """Get minimum distance in angular window. More reliable for corner detection."""
+        distances = []
+        for offset in range(-window, window + 1):
+            angle = (center + offset) % 360
+            if angle in scan:
+                distances.append(scan[angle])
+        if not distances:
+            return None
+        return min(distances)
 
     def _average_distance(self, scan: dict[int, float], center: int, window: int) -> float | None:
         distances = []

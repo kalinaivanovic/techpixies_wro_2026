@@ -72,47 +72,65 @@ class Lidar:
     def is_running(self) -> bool:
         return self._running
 
-    def start(self) -> bool:
-        """Start LIDAR scanning in background thread."""
+    def start(self, retries: int = 3) -> bool:
+        """Start LIDAR scanning in background thread. Retries on failure."""
         if self._running:
             logger.warning("LIDAR already running")
             return True
 
-        try:
-            self._lidar = PyRPlidar()
-            self._lidar.connect(port=self.port, baudrate=self.baudrate)
-            self._lidar.set_motor_pwm(self.motor_pwm)
-            time.sleep(1)  # Let motor spin up
+        for attempt in range(1, retries + 1):
+            try:
+                # Clean up any leftover state from previous unclean shutdown
+                self._force_cleanup()
 
-            self._running = True
-            self._thread = threading.Thread(target=self._scan_loop, daemon=True)
-            self._thread.start()
+                self._lidar = PyRPlidar()
+                self._lidar.connect(port=self.port, baudrate=self.baudrate)
+                self._lidar.set_motor_pwm(self.motor_pwm)
+                time.sleep(1)  # Let motor spin up
 
-            logger.info(f"LIDAR started on {self.port}")
-            return True
+                self._running = True
+                self._thread = threading.Thread(target=self._scan_loop, daemon=True)
+                self._thread.start()
 
-        except Exception as e:
-            logger.error(f"Failed to start LIDAR: {e}")
-            self._running = False
-            return False
+                logger.info(f"LIDAR started on {self.port}")
+                return True
+
+            except Exception as e:
+                logger.error(f"LIDAR start attempt {attempt}/{retries} failed: {e}")
+                self._force_cleanup()
+                if attempt < retries:
+                    time.sleep(1)
+
+        logger.error("LIDAR failed to start after all retries")
+        self._running = False
+        return False
+
+    def _force_cleanup(self):
+        """Force cleanup of LIDAR hardware state. Safe to call anytime."""
+        if self._lidar:
+            try:
+                self._lidar.stop()
+            except Exception:
+                pass
+            try:
+                self._lidar.set_motor_pwm(0)
+            except Exception:
+                pass
+            try:
+                self._lidar.disconnect()
+            except Exception:
+                pass
+            self._lidar = None
 
     def stop(self):
         """Stop LIDAR scanning."""
         self._running = False
 
         if self._thread:
-            self._thread.join(timeout=2.0)
+            self._thread.join(timeout=1.0)
             self._thread = None
 
-        if self._lidar:
-            try:
-                self._lidar.stop()
-                self._lidar.set_motor_pwm(0)
-                self._lidar.disconnect()
-            except Exception as e:
-                logger.error(f"Error stopping LIDAR: {e}")
-            self._lidar = None
-
+        self._force_cleanup()
         logger.info("LIDAR stopped")
 
     def get_scan(self) -> dict[int, float]:
@@ -348,58 +366,76 @@ class Lidar:
         return clusters
 
     def _scan_loop(self):
-        """Background scanning thread."""
-        try:
-            scan_generator = self._lidar.start_scan()
-            current_scan: dict[int, list[float]] = {}
-            current_quality: dict[int, list[int]] = {}
+        """Background scanning thread with auto-recovery."""
+        max_retries = 5
+        retry_count = 0
 
-            for reading in scan_generator():
-                if not self._running:
-                    break
+        while self._running and retry_count < max_retries:
+            try:
+                scan_generator = self._lidar.start_scan()
+                current_scan: dict[int, list[float]] = {}
+                current_quality: dict[int, list[int]] = {}
+                retry_count = 0  # Reset on successful scan start
 
-                angle = int(reading.angle) % 360
-                distance = reading.distance
-                quality = reading.quality
+                for reading in scan_generator():
+                    if not self._running:
+                        return
 
-                # Filter invalid readings
-                if distance < self.params.lidar_min_distance:
-                    continue
-                if quality < self.params.lidar_min_quality:
-                    continue
+                    angle = int(reading.angle) % 360
+                    distance = reading.distance
+                    quality = reading.quality
 
-                # Accumulate readings for averaging
-                if angle not in current_scan:
-                    current_scan[angle] = []
-                    current_quality[angle] = []
-                current_scan[angle].append(distance)
-                current_quality[angle].append(quality)
+                    # Filter invalid readings
+                    if distance < self.params.lidar_min_distance:
+                        continue
+                    if quality < self.params.lidar_min_quality:
+                        continue
 
-                # Instant mode: update live scan only for forward-facing angles
-                if self.params.lidar_instant:
-                    signed = angle if angle <= 180 else angle - 360
-                    if -self.params.lidar_display_angle <= signed <= self.params.lidar_display_angle:
+                    # Accumulate readings for averaging
+                    if angle not in current_scan:
+                        current_scan[angle] = []
+                        current_quality[angle] = []
+                    current_scan[angle].append(distance)
+                    current_quality[angle].append(quality)
+
+                    # Instant mode: update live scan only for forward-facing angles
+                    if self.params.lidar_instant:
+                        signed = angle if angle <= 180 else angle - 360
+                        if -self.params.lidar_display_angle <= signed <= self.params.lidar_display_angle:
+                            with self._lock:
+                                self._scan[angle] = distance
+                                self._scan_quality[angle] = quality
+                                self._scan_timestamp = time.time()
+
+                    # Full rotation: publish averaged scan
+                    if angle == 0 and len(current_scan) > 180:
+                        averaged = {a: sum(d) / len(d) for a, d in current_scan.items()}
+                        avg_quality = {a: sum(q) / len(q) for a, q in current_quality.items()}
+
                         with self._lock:
-                            self._scan[angle] = distance
-                            self._scan_quality[angle] = quality
+                            self._scan = averaged
+                            self._scan_quality = avg_quality
                             self._scan_timestamp = time.time()
 
-                # Full rotation: publish averaged scan
-                if angle == 0 and len(current_scan) > 180:
-                    averaged = {a: sum(d) / len(d) for a, d in current_scan.items()}
-                    avg_quality = {a: sum(q) / len(q) for a, q in current_quality.items()}
+                        current_scan.clear()
+                        current_quality.clear()
 
-                    with self._lock:
-                        self._scan = averaged
-                        self._scan_quality = avg_quality
-                        self._scan_timestamp = time.time()
+            except Exception as e:
+                if not self._running:
+                    return
+                retry_count += 1
+                logger.error(f"LIDAR scan error (retry {retry_count}/{max_retries}): {e}")
+                # Try to restart scanning
+                try:
+                    self._lidar.stop()
+                    time.sleep(0.5)
+                    self._lidar.set_motor_pwm(self.motor_pwm)
+                    time.sleep(0.5)
+                except Exception:
+                    pass
 
-                    current_scan.clear()
-                    current_quality.clear()
-
-        except Exception as e:
-            if self._running:
-                logger.error(f"LIDAR scan error: {e}")
+        if self._running:
+            logger.error("LIDAR scan loop exited after max retries")
 
     def __enter__(self):
         """Context manager entry."""
