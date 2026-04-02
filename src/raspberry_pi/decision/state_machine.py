@@ -179,7 +179,7 @@ class StateMachine:
             pillar = self._find_avoiding_pillar(world)
             if pillar is None:
                 # Our pillar lost from view — keep steering hard in same direction
-                direction = -1 if self._avoiding_pillar == "red" else 1
+                direction = 1 if self._avoiding_pillar == "red" else -1
                 steer = self.avoidance.steering_center + (direction * self.avoidance.max_steer_offset)
                 self._log_count_blind = getattr(self, '_log_count_blind', 0) + 1
                 if self._log_count_blind % 10 == 1:
@@ -303,12 +303,12 @@ class StateMachine:
                 self._recovery_attempts += 1
                 self._recovery_return_state = RobotState.AVOID_PILLAR
                 # Set direction to SAME as avoidance steering, so RECOVERY inverts it
-                # RED → avoidance steers LEFT → set LEFT → RECOVERY steers RIGHT
-                # GREEN → avoidance steers RIGHT → set RIGHT → RECOVERY steers LEFT
+                # RED → avoidance steers RIGHT → set RIGHT → RECOVERY steers LEFT
+                # GREEN → avoidance steers LEFT → set LEFT → RECOVERY steers RIGHT
                 if self._avoiding_pillar == "red":
-                    self._corner_direction = "LEFT"
-                else:
                     self._corner_direction = "RIGHT"
+                else:
+                    self._corner_direction = "LEFT"
                 logger.info(
                     f"Transition: AVOID_PILLAR -> RECOVERY "
                     f"(wall at {front:.0f}mm, attempt {self._recovery_attempts})"
@@ -323,7 +323,7 @@ class StateMachine:
                 logger.info(f"Transition: AVOID_PILLAR -> WALL_FOLLOW (after {self._avoid_frames} frames)")
                 self.state = RobotState.WALL_FOLLOW
                 self._avoiding_pillar = None
-                self._corner_suppressed_frames = 75  # Suppress corner for ~1.5s after pillar
+                self._corner_suppressed_frames = 150  # Suppress corner for ~3s after pillar
 
         elif self.state == RobotState.CORNER:
             self._corner_frames += 1

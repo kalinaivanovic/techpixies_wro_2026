@@ -57,9 +57,9 @@ class ProportionalAvoidance(AvoidanceStrategy):
         self._log_count = 0
 
     def compute(self, pillar: Pillar, world: WorldState) -> tuple[int, int]:
-        # RED → pass on RIGHT → steer LEFT (steering < 90)
-        # GREEN → pass on LEFT → steer RIGHT (steering > 90)
-        direction = -1 if pillar.color == "red" else 1
+        # RED → pass on RIGHT → steer RIGHT (steering > 90)
+        # GREEN → pass on LEFT → steer LEFT (steering < 90)
+        direction = 1 if pillar.color == "red" else -1
 
         # Urgency from distance: 0.0 when far, 1.0 when close
         # Square root curve — ramps up FAST even at medium distance
