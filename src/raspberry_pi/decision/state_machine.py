@@ -353,6 +353,7 @@ class StateMachine:
                     if self.lap_count >= self.target_laps:
                         self.state = RobotState.DONE
                         logger.info("Race complete!")
+                self._corner_suppressed_frames = 50  # Don't re-enter corner for ~1s
                 logger.info(
                     f"Transition: CORNER -> WALL_FOLLOW "
                     f"(corner_exits={self.corner_exits})"
@@ -400,30 +401,17 @@ class StateMachine:
     def _is_corner_cleared(self, world: WorldState) -> bool:
         """Check if the robot has completed the corner turn.
 
-        Two conditions (either one means corner is cleared):
-        1. Front distance > exit_threshold (original hysteresis, works for wide corridors)
-        2. Front distance > corner entry threshold AND both side walls visible
-           (works for narrow corridors where front never reaches exit_threshold)
+        Uses the corner entry threshold as the exit condition too.
+        If front > entry threshold, the robot is no longer facing a corner wall.
+        The min_corner_frames prevents rapid re-entry cycling.
         """
         front = world.walls.front_distance
         if front is None:
             return False  # Can't see front wall — still turning
-
-        # Method 1: front is very clear (wide corridor)
-        if front > self._corner_exit_threshold:
-            return True
-
-        # Method 2: robot is in a corridor (both walls at corridor-like distances)
-        # AND front is above collision distance (not about to crash)
-        left = world.walls.left_distance
-        right = world.walls.right_distance
-        wall_dist = self.params.wall_collision_distance if self.params else 250
-        if (left is not None and right is not None
-                and left < 800 and right < 800
-                and front > wall_dist):
-            return True
-
-        return False
+        # Exit when front is above the entry threshold
+        # (same distance that triggered the corner — if front is above it, corner is done)
+        entry_threshold = self.corner.threshold
+        return front > entry_threshold
 
     def _find_avoiding_pillar(self, world: WorldState):
         """Find the pillar we're currently avoiding (by color).
