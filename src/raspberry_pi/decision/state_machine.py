@@ -232,9 +232,12 @@ class StateMachine:
         """Check and execute state transitions."""
 
         if self.state == RobotState.WALL_FOLLOW:
-            # Tick down corner suppression after pillar avoidance
+            # Corner suppression: encoder-based after corner exit, frame-based after pillar
             if self._corner_suppressed_frames > 0:
                 self._corner_suppressed_frames -= 1
+            encoder = world.encoder_pos
+            corner_suppressed = (abs(encoder - self._last_corner_exit_encoder) < 4000
+                                 or self._corner_suppressed_frames > 0)
 
             # Priority 1: Pillar detected (obstacle mode only)
             is_open = self.params and self.params.challenge_mode == "open"
@@ -250,8 +253,8 @@ class StateMachine:
                 )
 
             # Priority 2: Corner detected
-            # Suppressed after pillar avoidance OR if pillars still visible nearby
-            elif (self._corner_suppressed_frames <= 0
+            # Suppressed after recent corner exit (encoder-based) or near pillars
+            elif (not corner_suppressed
                   and (is_open or not world.blocking_pillar(blocking_angle))
                   and world.is_corner_approaching):
                 self.state = RobotState.CORNER
@@ -343,11 +346,8 @@ class StateMachine:
             elif self._is_corner_cleared(world):
                 self.state = RobotState.WALL_FOLLOW
                 self._recovery_attempts = 0  # Reset for next corner
-                # Count this corner exit only if enough distance from last one
-                encoder = world.encoder_pos
-                if abs(encoder - self._last_corner_exit_encoder) > 4000:
-                    self.corner_exits += 1
-                    self._last_corner_exit_encoder = encoder
+                self._last_corner_exit_encoder = world.encoder_pos  # Encoder-based suppression
+                self.corner_exits += 1
                 new_lap_count = self.corner_exits // 4
                 line_laps = track_map.line_lap_count
                 new_lap_count = max(new_lap_count, line_laps)
@@ -360,7 +360,7 @@ class StateMachine:
                     if self.lap_count >= self.target_laps:
                         self.state = RobotState.DONE
                         logger.info("Race complete!")
-                self._corner_suppressed_frames = 150  # Don't re-enter corner for ~3s
+                # Suppression is now encoder-based via _last_corner_exit_encoder
                 logger.info(
                     f"Transition: CORNER -> WALL_FOLLOW "
                     f"(corner_exits={self.corner_exits})"
