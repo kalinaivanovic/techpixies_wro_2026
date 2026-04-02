@@ -408,25 +408,12 @@ class StateMachine:
     def _is_corner_cleared(self, world: WorldState) -> bool:
         """Check if the robot has completed the corner turn.
 
-        Tracks minimum front distance during the turn. Once front distance
-        has increased significantly from the minimum, the robot has turned
-        past the closest point and is now facing the next section.
-        Works for both wide and narrow corridors.
+        Original hysteresis: exit when front > corner_exit_threshold.
         """
         front = world.walls.front_distance
         if front is None:
-            return False  # Can't see front wall — still turning
-
-        # Track the minimum front distance during this turn
-        if front < self._corner_min_front:
-            self._corner_min_front = front
-
-        # Exit when front has increased by at least 200mm from the minimum
-        # This means the robot has turned past the closest wall point
-        if front > self._corner_min_front + 200:
-            return True
-
-        return False
+            return False
+        return front > self._corner_exit_threshold
 
     def _find_avoiding_pillar(self, world: WorldState):
         """Find the pillar we're currently avoiding (by color).
