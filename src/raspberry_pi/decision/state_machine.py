@@ -334,16 +334,19 @@ class StateMachine:
                     f"Transition: CORNER -> AVOID_PILLAR "
                     f"({p.color} dist={p.distance:.0f}mm angle={p.angle:.1f}°)"
                 )
-            # Stuck too long? Trigger recovery (reverse-and-retry)
-            elif self._corner_frames >= self._recovery_trigger_frames and not self._is_corner_cleared(world):
-                self.state = RobotState.RECOVERY
-                self._recovery_frames = 0
-                self._recovery_attempts += 1
-                self._recovery_return_state = RobotState.CORNER
-                logger.info(
-                    f"Transition: CORNER -> RECOVERY "
-                    f"(stuck after {self._corner_frames} frames, attempt {self._recovery_attempts})"
-                )
+            # Stuck against wall? Trigger recovery based on front distance
+            elif self._corner_frames > self._min_corner_frames:
+                front = world.walls.front_distance
+                wall_collision_dist = self.params.wall_collision_distance if self.params else 350
+                if front is not None and front < wall_collision_dist and not self._is_corner_cleared(world):
+                    self.state = RobotState.RECOVERY
+                    self._recovery_frames = 0
+                    self._recovery_attempts += 1
+                    self._recovery_return_state = RobotState.CORNER
+                    logger.info(
+                        f"Transition: CORNER -> RECOVERY "
+                        f"(wall at {front:.0f}mm, attempt {self._recovery_attempts})"
+                    )
             # Must stay minimum frames (safety net against LIDAR noise)
             elif self._corner_frames < self._min_corner_frames:
                 return
