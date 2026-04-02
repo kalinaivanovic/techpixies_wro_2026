@@ -97,7 +97,6 @@ class StateMachine:
         # For recovery state (reverse-and-retry)
         self._recovery_frames = 0
         self._recovery_reverse_frames = 25  # How long to reverse
-        self._recovery_trigger_frames = 75  # Corner frames before recovery triggers
         self._recovery_reverse_speed = 40
         self._recovery_escalate = True  # Escalate reverse duration per attempt
         self._recovery_attempts = 0  # Count retries for this corner
@@ -154,7 +153,6 @@ class StateMachine:
             self.corner.threshold = self.params.corner_threshold
             self._corner_exit_threshold = self.params.corner_exit_threshold
             self._min_corner_frames = self.params.corner_min_frames
-            self._recovery_trigger_frames = self.params.recovery_trigger_frames
             self._recovery_reverse_frames = self.params.recovery_reverse_frames
             self._recovery_reverse_speed = self.params.recovery_reverse_speed
             self._recovery_escalate = self.params.recovery_escalate

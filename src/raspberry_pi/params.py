@@ -113,11 +113,10 @@ class Parameters:
     corner_speed: int = 35  # speed during corner turn
     corner_min_frames: int = 15  # minimum frames to stay in corner (safety net)
 
-    # Wall collision avoidance (reverse when about to hit wall during pillar avoidance)
-    wall_collision_distance: int = 350  # mm — reverse if front wall closer than this
+    # Wall collision avoidance (reverse when about to hit wall)
+    wall_collision_distance: int = 250  # mm — reverse if front wall closer than this
 
-    # Recovery (reverse-and-retry when stuck in corner)
-    recovery_trigger_frames: int = 75  # frames in CORNER before triggering recovery (~1.5s)
+    # Recovery (reverse-and-retry when stuck)
     recovery_reverse_frames: int = 25  # frames to reverse (~0.5s)
     recovery_reverse_speed: int = 40  # reverse speed (0-100)
     recovery_escalate: bool = True  # True = each attempt reverses longer, False = fixed duration

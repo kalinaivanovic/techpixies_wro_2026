@@ -497,13 +497,13 @@
                     <!-- Recovery control -->
                     <div class="box" style="cursor:pointer;border:2px solid #e0e0e0" onclick="toggleRecoveryControl()">
                         <div class="box-label">Recovery</div>
-                        <div class="box-value" id="recovery-display" style="font-size:1.1rem">50 / 25 / 40</div>
-                        <div style="font-size:0.65rem;color:#aaa;margin-top:4px">trigger / reverse / speed &middot; click to edit</div>
+                        <div class="box-value" id="recovery-display" style="font-size:1.1rem">250 / 25 / 40</div>
+                        <div style="font-size:0.65rem;color:#aaa;margin-top:4px">wall dist / reverse / speed &middot; click to edit</div>
                     </div>
                     <div id="recovery-control-panel" style="display:none;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:14px">
                         <div style="margin-bottom:10px">
-                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Trigger After: <strong id="recovery-trigger-val">75</strong> frames</label>
-                            <input type="range" id="recovery-trigger-slider" min="20" max="300" step="5" value="75"
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Wall Distance: <strong id="recovery-walldist-val">250</strong>mm</label>
+                            <input type="range" id="recovery-walldist-slider" min="100" max="600" step="25" value="250"
                                 style="width:100%;margin-top:4px"
                                 oninput="onRecoverySlider()">
                         </div>
@@ -1150,9 +1150,9 @@
                     document.getElementById('corner-display').textContent =
                         data.corner_threshold + ' / ' + data.corner_exit_threshold;
                 }
-                if (data.recovery_trigger_frames !== undefined && data.recovery_reverse_frames !== undefined && data.recovery_reverse_speed !== undefined) {
+                if (data.wall_collision_distance !== undefined && data.recovery_reverse_frames !== undefined && data.recovery_reverse_speed !== undefined) {
                     document.getElementById('recovery-display').textContent =
-                        data.recovery_trigger_frames + ' / ' + data.recovery_reverse_frames + ' / ' + data.recovery_reverse_speed;
+                        data.wall_collision_distance + ' / ' + data.recovery_reverse_frames + ' / ' + data.recovery_reverse_speed;
                 }
                 if (data.wall_follow_kp !== undefined && data.wall_follow_steer_min !== undefined && data.wall_follow_steer_max !== undefined) {
                     document.getElementById('wf-display').textContent =
@@ -1429,7 +1429,7 @@
             if (panel.style.display === 'none') {
                 fetch('/api/params').then(r => r.json()).then(data => {
                     const fields = {
-                        'recovery-trigger': 'recovery_trigger_frames',
+                        'recovery-walldist': 'wall_collision_distance',
                         'recovery-reverse': 'recovery_reverse_frames',
                         'recovery-speed': 'recovery_reverse_speed',
                     };
@@ -1451,7 +1451,7 @@
 
         function _readRecoveryParams() {
             return {
-                recovery_trigger_frames: parseInt(document.getElementById('recovery-trigger-slider').value),
+                wall_collision_distance: parseInt(document.getElementById('recovery-walldist-slider').value),
                 recovery_reverse_frames: parseInt(document.getElementById('recovery-reverse-slider').value),
                 recovery_reverse_speed: parseInt(document.getElementById('recovery-speed-slider').value),
                 recovery_escalate: document.getElementById('recovery-escalate').checked,
@@ -1460,11 +1460,11 @@
 
         function onRecoverySlider() {
             const p = _readRecoveryParams();
-            document.getElementById('recovery-trigger-val').textContent = p.recovery_trigger_frames;
+            document.getElementById('recovery-walldist-val').textContent = p.wall_collision_distance;
             document.getElementById('recovery-reverse-val').textContent = p.recovery_reverse_frames;
             document.getElementById('recovery-speed-val').textContent = p.recovery_reverse_speed;
             document.getElementById('recovery-display').textContent =
-                p.recovery_trigger_frames + ' / ' + p.recovery_reverse_frames + ' / ' + p.recovery_reverse_speed;
+                p.wall_collision_distance + ' / ' + p.recovery_reverse_frames + ' / ' + p.recovery_reverse_speed;
             fetch('/api/params', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
