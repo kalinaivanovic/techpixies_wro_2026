@@ -193,13 +193,11 @@ class StateMachine:
             return speed, steering
 
         elif self.state == RobotState.CORNER:
-            # Only update direction from detector if track direction is unknown (first corner)
-            # Once track direction is known, it's forced in the transition and shouldn't be overridden
-            if self.direction is None and self._corner_frames < 10 and world.corner_ahead:
-                self._corner_direction = world.corner_ahead
-                self.direction = "CW" if world.corner_ahead == "RIGHT" else "CCW"
+            # Direction is locked at entry. Set track direction from first successful corner.
+            if self.direction is None and self._corner_direction:
+                self.direction = "CW" if self._corner_direction == "RIGHT" else "CCW"
 
-            direction = self._corner_direction or world.corner_ahead or "RIGHT"
+            direction = self._corner_direction or "RIGHT"
             speed, steering = self.corner.compute(direction, world)
             if self._corner_frames % 15 == 0:
                 front = world.walls.front_distance
