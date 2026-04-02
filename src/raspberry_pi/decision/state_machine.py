@@ -400,14 +400,29 @@ class StateMachine:
     def _is_corner_cleared(self, world: WorldState) -> bool:
         """Check if the robot has completed the corner turn.
 
-        Uses hysteresis: entered corner when front < corner_threshold,
-        only exits when front > corner_exit_threshold. This ensures
-        the robot has fully turned to face the next straight section.
+        Two conditions (either one means corner is cleared):
+        1. Front distance > exit_threshold (original hysteresis, works for wide corridors)
+        2. Front distance > corner entry threshold AND both side walls visible
+           (works for narrow corridors where front never reaches exit_threshold)
         """
         front = world.walls.front_distance
         if front is None:
             return False  # Can't see front wall — still turning
-        return front > self._corner_exit_threshold
+
+        # Method 1: front is very clear (wide corridor)
+        if front > self._corner_exit_threshold:
+            return True
+
+        # Method 2: front is above entry threshold AND robot is in a corridor
+        # (both walls visible = robot is aligned in the next section)
+        entry_threshold = self.corner.threshold if self.params else 500
+        if front > entry_threshold:
+            left = world.walls.left_distance
+            right = world.walls.right_distance
+            if left is not None and right is not None:
+                return True
+
+        return False
 
     def _find_avoiding_pillar(self, world: WorldState):
         """Find the pillar we're currently avoiding (by color).
