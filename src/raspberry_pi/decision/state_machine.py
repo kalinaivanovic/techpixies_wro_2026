@@ -66,6 +66,7 @@ class StateMachine:
         self.state = RobotState.IDLE
         self.lap_count = 0
         self.corner_exits = 0  # Counts successful CORNER→WALL_FOLLOW transitions
+        self._last_corner_exit_encoder = -10000  # Encoder at last counted corner exit
         self.target_laps = 3
         self.direction: str | None = None  # "CW" or "CCW"
         self.params = params  # Shared Parameters for runtime speed tuning
@@ -112,6 +113,7 @@ class StateMachine:
         self.state = RobotState.WALL_FOLLOW
         self.lap_count = 0
         self.corner_exits = 0
+        self._last_corner_exit_encoder = -10000
         self._avoiding_pillar = None
         logger.info("Race started")
 
@@ -339,8 +341,11 @@ class StateMachine:
             elif self._is_corner_cleared(world):
                 self.state = RobotState.WALL_FOLLOW
                 self._recovery_attempts = 0  # Reset for next corner
-                # Count this successful corner exit
-                self.corner_exits += 1
+                # Count this corner exit only if enough distance from last one
+                encoder = world.encoder_pos
+                if abs(encoder - self._last_corner_exit_encoder) > 2000:
+                    self.corner_exits += 1
+                    self._last_corner_exit_encoder = encoder
                 new_lap_count = self.corner_exits // 4
                 line_laps = track_map.line_lap_count
                 new_lap_count = max(new_lap_count, line_laps)
