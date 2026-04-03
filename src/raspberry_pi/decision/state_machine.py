@@ -236,7 +236,7 @@ class StateMachine:
             if self._corner_suppressed_frames > 0:
                 self._corner_suppressed_frames -= 1
             encoder = world.encoder_pos
-            corner_suppressed = (abs(encoder - self._last_corner_exit_encoder) < 2000
+            corner_suppressed = (abs(encoder - self._last_corner_exit_encoder) < 3000
                                  or self._corner_suppressed_frames > 0)
 
             # Priority 1: Pillar detected (obstacle mode only)
