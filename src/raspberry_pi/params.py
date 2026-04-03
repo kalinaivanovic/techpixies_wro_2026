@@ -112,6 +112,7 @@ class Parameters:
     corner_turn_offset: int = 25  # degrees offset from center (90 ± this)
     corner_speed: int = 35  # speed during corner turn
     corner_min_frames: int = 15  # minimum frames to stay in corner (safety net)
+    corner_suppression_ticks: int = 4000  # encoder ticks — no re-entry after corner exit
 
     # Wall collision avoidance (reverse when about to hit wall)
     wall_collision_distance: int = 250  # mm — reverse if front wall closer than this

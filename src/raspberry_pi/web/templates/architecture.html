@@ -485,7 +485,13 @@
                         </div>
                         <div style="margin-bottom:10px">
                             <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Min Frames: <strong id="corner-frames-val">15</strong></label>
-                            <input type="range" id="corner-frames-slider" min="5" max="60" value="15"
+                            <input type="range" id="corner-frames-slider" min="5" max="100" value="15"
+                                style="width:100%;margin-top:4px"
+                                oninput="onCornerSlider()">
+                        </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Suppression Ticks: <strong id="corner-suppress-val">4000</strong></label>
+                            <input type="range" id="corner-suppress-slider" min="1000" max="8000" step="500" value="4000"
                                 style="width:100%;margin-top:4px"
                                 oninput="onCornerSlider()">
                         </div>
@@ -1370,6 +1376,7 @@
                         'corner-turn': 'corner_turn_offset',
                         'corner-speed': 'corner_speed',
                         'corner-frames': 'corner_min_frames',
+                        'corner-suppress': 'corner_suppression_ticks',
                     };
                     for (const [id, param] of Object.entries(fields)) {
                         if (data[param] !== undefined) {
@@ -1391,6 +1398,7 @@
                 corner_turn_offset: parseInt(document.getElementById('corner-turn-slider').value),
                 corner_speed: parseInt(document.getElementById('corner-speed-slider').value),
                 corner_min_frames: parseInt(document.getElementById('corner-frames-slider').value),
+                corner_suppression_ticks: parseInt(document.getElementById('corner-suppress-slider').value),
             };
         }
 
@@ -1401,6 +1409,7 @@
             document.getElementById('corner-turn-val').textContent = p.corner_turn_offset;
             document.getElementById('corner-speed-val').textContent = p.corner_speed;
             document.getElementById('corner-frames-val').textContent = p.corner_min_frames;
+            document.getElementById('corner-suppress-val').textContent = p.corner_suppression_ticks;
             document.getElementById('corner-display').textContent = p.corner_threshold + ' / ' + p.corner_exit_threshold;
             fetch('/api/params', {
                 method: 'POST',
