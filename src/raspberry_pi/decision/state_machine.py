@@ -65,8 +65,9 @@ class StateMachine:
     def __init__(self, wall_follow: WallFollowStrategy = None, avoidance: AvoidanceStrategy = None, corner: CornerStrategy = None, parking: ParkingStrategy = None, params=None):
         self.state = RobotState.IDLE
         self.lap_count = 0
-        self.corner_exits = 0  # Counts successful CORNER→WALL_FOLLOW transitions
-        self._last_corner_exit_encoder = -10000  # Encoder at last counted corner exit
+        self.corner_count = 0  # Counts real physical corners
+        self._last_corner_entry_encoder = -10000  # Encoder at last counted corner entry
+        self._wall_follow_start_encoder = 0  # Encoder when WALL_FOLLOW started
         self.target_laps = 3
         self.direction: str | None = None  # "CW" or "CCW"
         self.params = params  # Shared Parameters for runtime speed tuning
@@ -113,8 +114,9 @@ class StateMachine:
         """Start the race."""
         self.state = RobotState.WALL_FOLLOW
         self.lap_count = 0
-        self.corner_exits = 0
-        self._last_corner_exit_encoder = -10000
+        self.corner_count = 0
+        self._last_corner_entry_encoder = -10000
+        self._wall_follow_start_encoder = 0
         self._avoiding_pillar = None
         logger.info("Race started")
 
@@ -236,8 +238,10 @@ class StateMachine:
             if self._corner_suppressed_frames > 0:
                 self._corner_suppressed_frames -= 1
             encoder = world.encoder_pos
+            # Corner is a real new corner only if robot traveled enough in WALL_FOLLOW
+            wall_follow_distance = abs(encoder - self._wall_follow_start_encoder)
             suppression_ticks = self.params.corner_suppression_ticks if self.params else 4000
-            corner_suppressed = (abs(encoder - self._last_corner_exit_encoder) < suppression_ticks
+            corner_suppressed = (wall_follow_distance < suppression_ticks
                                  or self._corner_suppressed_frames > 0)
 
             # Priority 1: Pillar detected (obstacle mode only)
@@ -262,6 +266,21 @@ class StateMachine:
                 self._corner_frames = 0
                 self._recovery_attempts = 0
                 self._corner_min_front = 9999
+                # Count this as a real corner (suppression already filtered false ones)
+                self.corner_count += 1
+                self._last_corner_entry_encoder = encoder
+                logger.info(f"Corner #{self.corner_count} at encoder {encoder} (wall_follow_dist={wall_follow_distance})")
+                # Check lap completion
+                new_lap_count = self.corner_count // 4
+                line_laps = track_map.line_lap_count
+                new_lap_count = max(new_lap_count, line_laps)
+                if new_lap_count > self.lap_count:
+                    self.lap_count = new_lap_count
+                    logger.info(f"Lap {self.lap_count} complete (corners={self.corner_count}, lines={line_laps})")
+                    if self.lap_count >= self.target_laps:
+                        self.state = RobotState.DONE
+                        logger.info("Race complete!")
+                        return
                 # Use track direction to determine corner direction (more reliable)
                 # CW track → all corners are RIGHT, CCW → all LEFT
                 if self.direction == "CW":
@@ -324,6 +343,7 @@ class StateMachine:
                 logger.info(f"Transition: AVOID_PILLAR -> WALL_FOLLOW (after {self._avoid_frames} frames)")
                 self.state = RobotState.WALL_FOLLOW
                 self._avoiding_pillar = None
+                self._wall_follow_start_encoder = world.encoder_pos
                 self._corner_suppressed_frames = 150  # Suppress corner for ~3s after pillar
 
         elif self.state == RobotState.CORNER:
@@ -346,25 +366,11 @@ class StateMachine:
             # Hysteresis: exit when front is clearly open (straight path ahead)
             elif self._is_corner_cleared(world):
                 self.state = RobotState.WALL_FOLLOW
-                self._recovery_attempts = 0  # Reset for next corner
-                self._last_corner_exit_encoder = world.encoder_pos  # Encoder-based suppression
-                self.corner_exits += 1
-                new_lap_count = self.corner_exits // 4
-                line_laps = track_map.line_lap_count
-                new_lap_count = max(new_lap_count, line_laps)
-                if new_lap_count > self.lap_count:
-                    self.lap_count = new_lap_count
-                    logger.info(
-                        f"Lap {self.lap_count} complete "
-                        f"(corner_exits={self.corner_exits}, lines={line_laps})"
-                    )
-                    if self.lap_count >= self.target_laps:
-                        self.state = RobotState.DONE
-                        logger.info("Race complete!")
-                # Suppression is now encoder-based via _last_corner_exit_encoder
+                self._recovery_attempts = 0
+                self._wall_follow_start_encoder = world.encoder_pos  # Track WALL_FOLLOW distance
                 logger.info(
                     f"Transition: CORNER -> WALL_FOLLOW "
-                    f"(corner_exits={self.corner_exits})"
+                    f"(corners={self.corner_count})"
                 )
             # Stuck against wall? Trigger recovery based on front distance
             else:
@@ -393,6 +399,7 @@ class StateMachine:
                 if return_to == RobotState.AVOID_PILLAR:
                     self.state = RobotState.WALL_FOLLOW  # Re-detect pillar fresh
                     self._avoid_frames = 0
+                    self._wall_follow_start_encoder = world.encoder_pos
                 else:
                     self.state = RobotState.CORNER
                     self._corner_frames = 0
