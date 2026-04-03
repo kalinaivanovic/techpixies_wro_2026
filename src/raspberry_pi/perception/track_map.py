@@ -151,7 +151,7 @@ class TrackMap:
         encoder = world.encoder_pos
 
         # Simple blue line counter (most reliable for lap counting)
-        if color == "blue" and abs(encoder - self._last_blue_encoder) > 3000:
+        if color == "blue" and abs(encoder - self._last_blue_encoder) > 5000:
             self.blue_count += 1
             self._last_blue_encoder = encoder
             logger.info(f"TrackMap: Blue line #{self.blue_count} at enc={encoder}")
