@@ -270,17 +270,6 @@ class StateMachine:
                 self.corner_count += 1
                 self._last_corner_entry_encoder = encoder
                 logger.info(f"Corner #{self.corner_count} at encoder {encoder} (wall_follow_dist={wall_follow_distance})")
-                # Check lap completion
-                new_lap_count = self.corner_count // 4
-                line_laps = track_map.line_lap_count
-                new_lap_count = max(new_lap_count, line_laps)
-                if new_lap_count > self.lap_count:
-                    self.lap_count = new_lap_count
-                    logger.info(f"Lap {self.lap_count} complete (corners={self.corner_count}, lines={line_laps})")
-                    if self.lap_count >= self.target_laps:
-                        self.state = RobotState.DONE
-                        logger.info("Race complete!")
-                        return
                 # Use track direction to determine corner direction (more reliable)
                 # CW track → all corners are RIGHT, CCW → all LEFT
                 if self.direction == "CW":
