@@ -69,6 +69,8 @@ class StateMachine:
         self._last_corner_entry_encoder = -10000  # Encoder at last counted corner entry
         self._wall_follow_start_encoder = 0  # Encoder when WALL_FOLLOW started
         self.target_laps = 3
+        self._finish_encoder = None  # Encoder when laps completed, coast before stopping
+        self._finish_coast_ticks = 5000  # How far to coast after laps done
         self.direction: str | None = None  # "CW" or "CCW"
         self.params = params  # Shared Parameters for runtime speed tuning
 
@@ -117,6 +119,7 @@ class StateMachine:
         self.corner_count = 0
         self._last_corner_entry_encoder = -10000
         self._wall_follow_start_encoder = 0
+        self._finish_encoder = None
         self._avoiding_pillar = None
         logger.info("Race started")
 
@@ -295,10 +298,16 @@ class StateMachine:
             line_laps = track_map.line_lap_count
             if line_laps > self.lap_count:
                 self.lap_count = line_laps
-                logger.info(f"Lap {self.lap_count} complete (from line detection)")
-                if self.lap_count >= self.target_laps:
+                logger.info(f"Lap {self.lap_count} complete (from line detection, blue={track_map.blue_count})")
+                if self.lap_count >= self.target_laps and self._finish_encoder is None:
+                    self._finish_encoder = encoder
+                    logger.info(f"Laps complete at encoder {encoder}, coasting {self._finish_coast_ticks} ticks...")
+
+            # Coast after laps complete, then stop
+            if self._finish_encoder is not None:
+                if abs(encoder - self._finish_encoder) >= self._finish_coast_ticks:
                     self.state = RobotState.DONE
-                    logger.info("Race complete!")
+                    logger.info("Race complete! Stopped after coasting.")
 
         elif self.state == RobotState.AVOID_PILLAR:
             self._avoid_frames += 1
