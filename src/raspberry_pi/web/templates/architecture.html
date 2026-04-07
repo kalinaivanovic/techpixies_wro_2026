@@ -1786,9 +1786,13 @@
             clearTimeout(hsvParamTimer);
             hsvParamTimer = setTimeout(() => {
                 const params = {};
-                document.querySelectorAll('.hsv-sliders input[data-param]').forEach(input => {
-                    params[input.getAttribute('data-param')] = parseInt(input.value);
-                });
+                // Only send params from the ACTIVE color tab (not hidden ones)
+                const activePanel = document.getElementById('sliders-' + currentColorTab);
+                if (activePanel) {
+                    activePanel.querySelectorAll('input[data-param]').forEach(input => {
+                        params[input.getAttribute('data-param')] = parseInt(input.value);
+                    });
+                }
                 params.min_contour_area = parseInt(document.getElementById('hsv-min-area').value);
                 if (lyf && lma) {
                     params.line_y_fraction = parseFloat(lyf.value);
@@ -1811,9 +1815,13 @@
 
         function hsvSave() {
             const params = {_save: true};
-            document.querySelectorAll('.hsv-sliders input[data-param]').forEach(input => {
-                params[input.getAttribute('data-param')] = parseInt(input.value);
-            });
+            // Only save params from the ACTIVE color tab
+            const activePanel = document.getElementById('sliders-' + currentColorTab);
+            if (activePanel) {
+                activePanel.querySelectorAll('input[data-param]').forEach(input => {
+                    params[input.getAttribute('data-param')] = parseInt(input.value);
+                });
+            }
             params.min_contour_area = parseInt(document.getElementById('hsv-min-area').value);
 
             fetch('/api/params', {

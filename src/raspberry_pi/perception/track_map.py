@@ -76,6 +76,8 @@ class TrackMap:
 
         # Line crossing tracking
         self.section_count: int = 0  # 4 = 1 lap
+        self.blue_count: int = 0  # Simple blue line counter: 4 = 1 lap
+        self._last_blue_encoder: int = -5000  # Encoder at last blue detection
         self.line_direction: str | None = None  # "CW" or "CCW" from line order
         self._last_line_color: str | None = None
         self._last_line_encoder: int = -1000
@@ -98,8 +100,8 @@ class TrackMap:
 
     @property
     def line_lap_count(self) -> int:
-        """Laps completed according to line crossings."""
-        return self.section_count // 4
+        """Laps completed according to blue line crossings."""
+        return self.blue_count // 4
 
     def update(self, world: WorldState) -> None:
         """Update map with current perception. Call each frame."""
@@ -147,6 +149,12 @@ class TrackMap:
         """Track orange/blue line crossings for section counting."""
         color = world.floor_line
         encoder = world.encoder_pos
+
+        # Simple blue line counter (most reliable for lap counting)
+        if color == "blue" and abs(encoder - self._last_blue_encoder) > 5000:
+            self.blue_count += 1
+            self._last_blue_encoder = encoder
+            logger.info(f"TrackMap: Blue line #{self.blue_count} at enc={encoder}")
 
         if color is None:
             # Gap between lines — if we saw a single color, it was a partial sighting
