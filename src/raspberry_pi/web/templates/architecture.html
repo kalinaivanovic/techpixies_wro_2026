@@ -759,7 +759,25 @@
                 cursor:pointer;color:#666;
             ">&#x2715;</button>
 
-            <h2 style="margin:0 0 20px;color:#444;font-weight:400">Camera Debug View</h2>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 20px">
+                <h2 style="margin:0;color:#444;font-weight:400">Camera Debug View</h2>
+                <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font-size:0.75rem;color:#888;text-transform:uppercase">Resolution</span>
+                    <select id="camera-resolution" onchange="onCameraResolutionChange()" style="
+                        padding:6px 10px;border:1px solid #ccc;border-radius:6px;
+                        background:#fff;font-size:0.85rem;cursor:pointer;
+                    ">
+                        <option value="320x240">320 × 240 (4:3)</option>
+                        <option value="640x480">640 × 480 (4:3)</option>
+                        <option value="800x600">800 × 600 (4:3)</option>
+                        <option value="1280x720">1280 × 720 (16:9)</option>
+                        <option value="1640x1232">1640 × 1232 (4:3)</option>
+                        <option value="1920x1080">1920 × 1080 (16:9)</option>
+                        <option value="3280x2464">3280 × 2464 (4:3 max)</option>
+                    </select>
+                    <span id="camera-resolution-status" style="font-size:0.75rem;color:#888;min-width:60px"></span>
+                </div>
+            </div>
 
             <div style="margin-bottom:20px">
                 <div style="font-size:0.8rem;text-transform:uppercase;color:#888;letter-spacing:1px;margin-bottom:8px">
@@ -1696,6 +1714,57 @@
             document.getElementById('overlay-orange').src = '/stream/camera/orange';
             document.getElementById('overlay-blue').src = '/stream/camera/blue';
             loadHsvParams();
+            loadCameraResolution();
+        }
+
+        function loadCameraResolution() {
+            fetch('/api/params').then(r => r.json()).then(data => {
+                if (data.camera_width && data.camera_height) {
+                    const value = data.camera_width + 'x' + data.camera_height;
+                    const sel = document.getElementById('camera-resolution');
+                    // Add option if not in dropdown (for custom resolutions)
+                    if (![...sel.options].some(o => o.value === value)) {
+                        const opt = document.createElement('option');
+                        opt.value = value;
+                        opt.textContent = data.camera_width + ' × ' + data.camera_height;
+                        sel.appendChild(opt);
+                    }
+                    sel.value = value;
+                }
+            }).catch(() => {});
+        }
+
+        function onCameraResolutionChange() {
+            const sel = document.getElementById('camera-resolution');
+            const status = document.getElementById('camera-resolution-status');
+            const [w, h] = sel.value.split('x').map(Number);
+            status.textContent = 'Applying...';
+            status.style.color = '#888';
+            // Save params first
+            fetch('/api/params', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({camera_width: w, camera_height: h, _save: true})
+            }).then(() => {
+                // Restart camera to apply
+                return fetch('/api/camera/restart', {method: 'POST'});
+            }).then(r => r.json()).then(data => {
+                if (data.ok || !data.error) {
+                    status.textContent = 'Applied';
+                    status.style.color = '#00b894';
+                    // Reload streams
+                    setTimeout(() => {
+                        document.getElementById('overlay-camera').src = '/stream/camera?t=' + Date.now();
+                    }, 500);
+                } else {
+                    status.textContent = 'Error';
+                    status.style.color = '#d63031';
+                }
+                setTimeout(() => { status.textContent = ''; }, 3000);
+            }).catch(() => {
+                status.textContent = 'Failed';
+                status.style.color = '#d63031';
+            });
         }
 
         function closeCameraOverlay() {
