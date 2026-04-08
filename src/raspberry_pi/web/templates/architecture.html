@@ -1752,10 +1752,25 @@
                 if (data.ok || !data.error) {
                     status.textContent = 'Applied';
                     status.style.color = '#00b894';
-                    // Reload streams
+                    // Reload all camera streams (overlay + masks + main page)
                     setTimeout(() => {
-                        document.getElementById('overlay-camera').src = '/stream/camera?t=' + Date.now();
-                    }, 500);
+                        const t = Date.now();
+                        const reload = (id, url) => {
+                            const el = document.getElementById(id);
+                            if (el) {
+                                el.src = '';
+                                setTimeout(() => { el.src = url + '?t=' + t; }, 50);
+                            }
+                        };
+                        reload('overlay-camera', '/stream/camera');
+                        reload('overlay-red', '/stream/camera/red');
+                        reload('overlay-green', '/stream/camera/green');
+                        reload('overlay-magenta', '/stream/camera/magenta');
+                        reload('overlay-orange', '/stream/camera/orange');
+                        reload('overlay-blue', '/stream/camera/blue');
+                        reload('camera-view', '/stream/camera');
+                        reload('ws-camera', '/stream/worldstate/camera');
+                    }, 1000);
                 } else {
                     status.textContent = 'Error';
                     status.style.color = '#d63031';
