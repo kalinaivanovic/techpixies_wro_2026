@@ -3,7 +3,6 @@
 Button daemon - watches GPIO button and launches robot in correct mode.
 
 Single press:   Competition mode (no wifi, no web)
-Double press:   Debug mode (wifi + web server)
 Long press:     Shutdown Raspberry Pi
 Press while running: Stop robot program
 
@@ -21,7 +20,6 @@ import time
 import RPi.GPIO as GPIO
 
 BUTTON_PIN = 17          # GPIO 17 = physical pin 11
-DOUBLE_PRESS_WINDOW = 5  # seconds to wait for second press
 LONG_PRESS_THRESHOLD = 5  # seconds to trigger shutdown
 DEBOUNCE_MS = 200        # button debounce
 PROJECT_DIR = "/home/kalina/techpixies_wro_2026/src/raspberry_pi"
@@ -35,47 +33,27 @@ def wait_for_press():
     GPIO.wait_for_edge(BUTTON_PIN, GPIO.FALLING)
 
 
-def wait_for_second_press(timeout):
-    """Wait up to timeout seconds for another press. Returns True if pressed."""
-    start = time.time()
-    while time.time() - start < timeout:
-        edge = GPIO.wait_for_edge(BUTTON_PIN, GPIO.FALLING, timeout=100)
-        if edge is not None:
-            return True
-    return False
-
-
 def get_press_type():
-    """Detect press type: 'short', 'long', or 'double'."""
+    """Detect press type: 'short' or 'long'."""
     # Wait for button release to measure hold duration
     press_start = time.time()
     while GPIO.input(BUTTON_PIN) == GPIO.LOW:
         if time.time() - press_start > LONG_PRESS_THRESHOLD:
             return "long"
         time.sleep(0.05)
-
-    # Button released - it was a short press
-    # Now wait for possible second press
-    print(f"First press. Waiting {DOUBLE_PRESS_WINDOW}s for second press...")
-    if wait_for_second_press(DOUBLE_PRESS_WINDOW):
-        return "double"
     return "short"
 
 
-def start_robot(mode):
-    """Launch main.py as subprocess."""
+def start_robot():
+    """Launch main.py as subprocess in competition mode."""
     global robot_process
 
     stop_robot()
 
-    if mode == "competition":
-        subprocess.run(["sudo", "rfkill", "block", "wifi"], check=False)
-        cmd = [PYTHON_BIN, "main.py", "--motor", "--lidar"]
-    else:
-        subprocess.run(["sudo", "rfkill", "unblock", "wifi"], check=False)
-        cmd = [PYTHON_BIN, "main.py", "--web", "--motor", "--lidar"]
+    subprocess.run(["sudo", "rfkill", "block", "wifi"], check=False)
+    cmd = [PYTHON_BIN, "main.py", "--motor", "--lidar"]
 
-    print(f"Starting robot in {mode} mode: {' '.join(cmd)}")
+    print(f"Starting robot: {' '.join(cmd)}")
     robot_process = subprocess.Popen(cmd, cwd=PROJECT_DIR)
 
 
@@ -91,6 +69,9 @@ def stop_robot():
         except subprocess.TimeoutExpired:
             robot_process.kill()
         robot_process = None
+        # Re-enable wifi so SSH access is restored
+        subprocess.run(["sudo", "rfkill", "unblock", "wifi"], check=False)
+        print("Wifi re-enabled")
 
 
 def cleanup(signum=None, frame=None):
@@ -129,11 +110,8 @@ def main():
             subprocess.run(["sudo", "shutdown", "-h", "now"])
             sys.exit(0)
 
-        elif press == "double":
-            start_robot("debug")
-
         else:
-            start_robot("competition")
+            start_robot()
 
 
 if __name__ == "__main__":
