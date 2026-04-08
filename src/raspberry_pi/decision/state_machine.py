@@ -344,7 +344,9 @@ class StateMachine:
                 self.state = RobotState.WALL_FOLLOW
                 self._avoiding_pillar = None
                 self._wall_follow_start_encoder = world.encoder_pos
-                self._corner_suppressed_frames = 150  # Suppress corner for ~3s after pillar
+                self._corner_suppressed_frames = (
+                    self.params.post_pillar_corner_suppression if self.params else 30
+                )
 
         elif self.state == RobotState.CORNER:
             self._corner_frames += 1
