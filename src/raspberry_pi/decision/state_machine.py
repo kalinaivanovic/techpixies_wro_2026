@@ -250,6 +250,8 @@ class StateMachine:
             # Priority 1: Pillar detected (obstacle mode only)
             is_open = self.params and self.params.challenge_mode == "open"
             p = None if is_open else world.blocking_pillar(blocking_angle)
+            if p and self.params and p.distance > self.params.avoid_trigger_distance:
+                p = None  # Too far — wait until closer
             if p:
                 self.state = RobotState.AVOID_PILLAR
                 self._avoiding_pillar = p.color
@@ -263,7 +265,7 @@ class StateMachine:
             # Priority 2: Corner detected
             # Suppressed after recent corner exit (encoder-based) or near pillars
             elif (not corner_suppressed
-                  and (is_open or not world.blocking_pillar(blocking_angle))
+                  and (is_open or not self._has_close_pillar(world, blocking_angle))
                   and world.is_corner_approaching):
                 self.state = RobotState.CORNER
                 self._corner_frames = 0
@@ -349,6 +351,8 @@ class StateMachine:
             # Pillar overrides corner (obstacle mode only)
             is_open = self.params and self.params.challenge_mode == "open"
             p = None if is_open else world.blocking_pillar(blocking_angle)
+            if p and self.params and p.distance > self.params.avoid_trigger_distance:
+                p = None  # Too far — stay in corner
             if p:
                 self.state = RobotState.AVOID_PILLAR
                 self._avoiding_pillar = p.color
@@ -420,6 +424,15 @@ class StateMachine:
         if front is None:
             return False
         return front > self._corner_exit_threshold
+
+    def _has_close_pillar(self, world: WorldState, blocking_angle: float) -> bool:
+        """Check if there's a blocking pillar within the avoidance trigger distance."""
+        p = world.blocking_pillar(blocking_angle)
+        if p is None:
+            return False
+        if self.params and p.distance > self.params.avoid_trigger_distance:
+            return False
+        return True
 
     def _find_avoiding_pillar(self, world: WorldState):
         """Find the pillar we're currently avoiding (by color).

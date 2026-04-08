@@ -447,6 +447,12 @@
                                 style="width:100%;margin-top:4px"
                                 oninput="onAvoidSlider()">
                         </div>
+                        <div style="margin-bottom:10px">
+                            <label style="font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px">Trigger Distance: <strong id="avoid-trigger-val">800</strong>mm</label>
+                            <input type="range" id="avoid-trigger-slider" min="300" max="1500" step="50" value="800"
+                                style="width:100%;margin-top:4px"
+                                oninput="onAvoidSlider()">
+                        </div>
                         <button onclick="saveAvoidParams(this)" style="
                             width:100%;padding:6px;border:none;border-radius:6px;
                             background:#6c5ce7;color:#fff;font-size:0.8rem;cursor:pointer;
@@ -1328,6 +1334,10 @@
                         document.getElementById('avoid-blocking-slider').value = data.blocking_angle;
                         document.getElementById('avoid-blocking-val').textContent = data.blocking_angle;
                     }
+                    if (data.avoid_trigger_distance !== undefined) {
+                        document.getElementById('avoid-trigger-slider').value = data.avoid_trigger_distance;
+                        document.getElementById('avoid-trigger-val').textContent = data.avoid_trigger_distance;
+                    }
                 }).catch(() => {});
                 panel.style.display = '';
             } else {
@@ -1339,14 +1349,16 @@
             const min = parseInt(document.getElementById('avoid-min-slider').value);
             const max = parseInt(document.getElementById('avoid-max-slider').value);
             const blocking = parseInt(document.getElementById('avoid-blocking-slider').value);
+            const trigger = parseInt(document.getElementById('avoid-trigger-slider').value);
             document.getElementById('avoid-min-val').textContent = min;
             document.getElementById('avoid-max-val').textContent = max;
             document.getElementById('avoid-blocking-val').textContent = blocking;
+            document.getElementById('avoid-trigger-val').textContent = trigger;
             document.getElementById('avoid-steer-display').textContent = min + ' / ' + max;
             fetch('/api/params', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({avoid_steer_min: min, avoid_steer_max: max, blocking_angle: blocking})
+                body: JSON.stringify({avoid_steer_min: min, avoid_steer_max: max, blocking_angle: blocking, avoid_trigger_distance: trigger})
             }).catch(() => {});
         }
 
@@ -1354,10 +1366,11 @@
             const min = parseInt(document.getElementById('avoid-min-slider').value);
             const max = parseInt(document.getElementById('avoid-max-slider').value);
             const blocking = parseInt(document.getElementById('avoid-blocking-slider').value);
+            const trigger = parseInt(document.getElementById('avoid-trigger-slider').value);
             fetch('/api/params', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({avoid_steer_min: min, avoid_steer_max: max, blocking_angle: blocking, _save: true})
+                body: JSON.stringify({avoid_steer_min: min, avoid_steer_max: max, blocking_angle: blocking, avoid_trigger_distance: trigger, _save: true})
             }).then(() => {
                 btn.textContent = 'Saved!';
                 btn.style.background = '#00b894';

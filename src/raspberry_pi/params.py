@@ -105,6 +105,7 @@ class Parameters:
     avoid_steer_min: int = 45  # Minimum turn when pillar detected
     avoid_steer_max: int = 80  # Maximum turn when pillar very close
     blocking_angle: float = 35.0  # Degrees from center — pillar within this is "blocking"
+    avoid_trigger_distance: int = 800  # mm — ignore pillars farther than this
 
     # Corner detection and handling
     corner_threshold: int = 500  # mm — front wall distance to enter corner state
