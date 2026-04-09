@@ -453,11 +453,10 @@ class StateMachine:
     def _is_pillar_cleared(self, world: WorldState) -> bool:
         """Check if the pillar we're avoiding is safely past the robot body.
 
-        The robot is 150mm wide. A pillar at 30° from center could still
-        be in the path of the robot's edge. We require the pillar to be:
-        - Gone from view entirely (for at least 2× min frames), OR
-        - Far enough to the side (>55° from center), OR
-        - Far enough away (>600mm)
+        The pillar is "cleared" only when it's BOTH off to the side AND
+        either far away or no longer visible. Requiring both prevents
+        premature exit when the robot rotates fast and the angle changes
+        even though the pillar is still physically in front.
         """
         # Find the pillar we're avoiding by color
         our_pillar = None
@@ -470,13 +469,13 @@ class StateMachine:
             # Pillar not visible — only clear if we've been avoiding long enough
             return self._avoid_frames > self._min_avoid_frames * 2
 
-        # Pillar still visible — is it safely past?
-        if our_pillar.distance > self._clear_distance:
-            return True  # Far enough away
-        if abs(our_pillar.angle) > self._clear_angle:
-            return True  # Well past the side of the robot
+        # Pillar still visible — clear only if both side AND far conditions met
+        # Side: well off to one side (large angle from center)
+        # Far: distance is increasing past clear distance
+        side_cleared = abs(our_pillar.angle) > self._clear_angle
+        far_cleared = our_pillar.distance > self._clear_distance
 
-        return False
+        return side_cleared and far_cleared
 
     def _update_avoid_phase(self, pillar) -> None:
         """Track pillar avoidance progress."""
