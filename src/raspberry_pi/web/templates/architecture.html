@@ -1741,7 +1741,7 @@
         }
 
         function loadHsvParams() {
-            fetch('/api/params').then(r => r.json()).then(data => {
+            fetch('/api/params?t=' + Date.now()).then(r => r.json()).then(data => {
                 if (data.error) return;
                 if (!hsvDefaults) hsvDefaults = {...data};
 
@@ -1840,6 +1840,10 @@
         }
 
         function hsvSave() {
+            // Cancel any pending debounced hsvParamChanged POST so it can't
+            // overwrite the saved state after we save.
+            clearTimeout(hsvParamTimer);
+
             const params = {_save: true};
             // Only save params from the ACTIVE color tab
             const activePanel = document.getElementById('sliders-' + currentColorTab);
@@ -1855,6 +1859,8 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(params)
             }).then(() => {
+                // Refresh sliders from server so what's shown matches in-memory state
+                loadHsvParams();
                 document.getElementById('hsv-status').textContent = 'Saved to params.json';
                 document.getElementById('hsv-status').style.color = '#00b894';
                 setTimeout(() => {

@@ -311,6 +311,30 @@ class StateMachine:
                     self.state = RobotState.DONE
                     logger.info("Race complete! Stopped after coasting.")
 
+            # Wall collision recovery: if front wall is dangerously close while
+            # in WALL_FOLLOW (no corner/pillar detected), reverse to gain space.
+            # This catches cases where wall_follow can't recover its angle in time.
+            if self.state == RobotState.WALL_FOLLOW:
+                front = world.walls.front_distance
+                wall_collision_dist = self.params.wall_collision_distance if self.params else 250
+                if front is not None and front < wall_collision_dist:
+                    self.state = RobotState.RECOVERY
+                    self._recovery_frames = 0
+                    self._recovery_attempts += 1
+                    self._recovery_return_state = RobotState.WALL_FOLLOW
+                    # Determine reverse direction from which side wall is closer
+                    left = world.walls.left_distance
+                    right = world.walls.right_distance
+                    if left is not None and right is not None:
+                        # Closer to right wall → set RIGHT (recovery will reverse left)
+                        self._corner_direction = "RIGHT" if right < left else "LEFT"
+                    else:
+                        self._corner_direction = "RIGHT"  # Default
+                    logger.info(
+                        f"Transition: WALL_FOLLOW -> RECOVERY "
+                        f"(wall at {front:.0f}mm, attempt {self._recovery_attempts})"
+                    )
+
         elif self.state == RobotState.AVOID_PILLAR:
             self._avoid_frames += 1
 
@@ -403,6 +427,9 @@ class StateMachine:
                 if return_to == RobotState.AVOID_PILLAR:
                     self.state = RobotState.WALL_FOLLOW  # Re-detect pillar fresh
                     self._avoid_frames = 0
+                    self._wall_follow_start_encoder = world.encoder_pos
+                elif return_to == RobotState.WALL_FOLLOW:
+                    self.state = RobotState.WALL_FOLLOW  # Resume wall following
                     self._wall_follow_start_encoder = world.encoder_pos
                 else:
                     self.state = RobotState.CORNER
