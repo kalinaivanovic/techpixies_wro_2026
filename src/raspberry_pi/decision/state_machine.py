@@ -213,12 +213,12 @@ class StateMachine:
             else:
                 # Obstacle mode: two-phase stop-and-reverse
                 front = world.walls.front_distance
-                wall_dist = self.params.wall_collision_distance if self.params else 300
+                phase2_dist = self.params.corner_phase2_distance if self.params else 600
 
                 if self._corner_phase == 0:
                     # Phase 1: approach the corner wall with steering
                     speed, steering = self.corner.compute(direction, world)
-                    if front is not None and front < wall_dist:
+                    if front is not None and front < phase2_dist:
                         self._corner_phase = 1
                         logger.info(f"CORNER phase 1→2: rotating (front={front:.0f}mm)")
                 else:
