@@ -233,8 +233,8 @@ class StateMachine:
                     else:
                         steering = STEERING_CENTER - self.corner.turn_offset
                     speed = -(self.params.recovery_reverse_speed if self.params else 40)
-                    # Exit Phase 2 after enough rotation (front opens up)
-                    if front is not None and front > phase2_dist + 150:
+                    # Exit Phase 2 when front is clear enough (using exit threshold)
+                    if front is not None and front > self._corner_exit_threshold:
                         self._corner_phase = 2
                         self._phase3_frames = 0
                         logger.info(f"CORNER phase 2→3: driving forward (front={front:.0f}mm)")
