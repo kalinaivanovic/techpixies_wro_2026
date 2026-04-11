@@ -301,13 +301,8 @@ class StateMachine:
             p = None if is_open else world.blocking_pillar(blocking_angle)
             if p and self.params and p.distance > self.params.avoid_trigger_distance:
                 p = None  # Too far — wait until closer
-            if p and not is_open:
-                # Skip avoidance if corner is approaching OR front wall is within 1.5x corner threshold
-                # This prevents steering into walls when pillars are near corners
-                front = world.walls.front_distance
-                corner_zone = int(self.corner.threshold * 1.5) if self.params else 1200
-                if world.is_corner_approaching or (front is not None and front < corner_zone):
-                    p = None  # Near corner zone — handle corner first, avoid pillar after turn
+            # Wall protection in avoidance.compute() handles wall proximity
+            # No corner_zone skip — let avoidance run with wall-aware steering
             if p:
                 self.state = RobotState.AVOID_PILLAR
                 self._avoiding_pillar = p.color
