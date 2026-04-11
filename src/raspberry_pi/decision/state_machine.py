@@ -326,9 +326,14 @@ class StateMachine:
                 self.corner_count += 1
                 self._last_corner_entry_encoder = encoder
                 logger.info(f"Corner #{self.corner_count} at encoder {encoder} (wall_follow_dist={wall_follow_distance})")
-                # Use detector's direction — don't trust TrackMap's direction
-                # which can be wrong from false corner detections during pillar avoidance
-                self._corner_direction = world.corner_ahead
+                # Use preset direction if set, otherwise detector
+                preset = self.params.preset_direction if self.params else "auto"
+                if preset == "CW":
+                    self._corner_direction = "RIGHT"
+                elif preset == "CCW":
+                    self._corner_direction = "LEFT"
+                else:
+                    self._corner_direction = world.corner_ahead
                 logger.info(
                     f"Transition: WALL_FOLLOW -> CORNER "
                     f"({self._corner_direction}, track={self.direction}, detector={world.corner_ahead})"

@@ -28,6 +28,9 @@ class Parameters:
     # Challenge mode: "open" (no pillars) or "obstacle" (pillars + parking)
     challenge_mode: str = "obstacle"
 
+    # Preset direction: "auto" (detect), "CW" (all RIGHT), "CCW" (all LEFT)
+    preset_direction: str = "auto"
+
     # Red range 1 (low hue end: 0-10)
     red_h_min1: int = 0
     red_h_max1: int = 10
