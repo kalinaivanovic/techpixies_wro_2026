@@ -296,10 +296,13 @@ class StateMachine:
                                  or self._corner_suppressed_frames > 0)
 
             # Priority 1: Pillar detected (obstacle mode only)
+            # BUT: don't enter avoidance if corner is also approaching — handle corner first
             is_open = self.params and self.params.challenge_mode == "open"
             p = None if is_open else world.blocking_pillar(blocking_angle)
             if p and self.params and p.distance > self.params.avoid_trigger_distance:
                 p = None  # Too far — wait until closer
+            if p and not is_open and world.is_corner_approaching:
+                p = None  # Corner takes priority in obstacle mode — avoid pillar after turn
             if p:
                 self.state = RobotState.AVOID_PILLAR
                 self._avoiding_pillar = p.color
@@ -311,9 +314,8 @@ class StateMachine:
                 )
 
             # Priority 2: Corner detected
-            # Suppressed after recent corner exit, after pillar avoidance, or if close blocking pillar
+            # Suppressed after recent corner exit or after pillar avoidance
             elif (not corner_suppressed
-                  and (is_open or not self._has_close_pillar(world, blocking_angle))
                   and world.is_corner_approaching):
                 self.state = RobotState.CORNER
                 self._corner_frames = 0
@@ -487,6 +489,13 @@ class StateMachine:
         if self.params and p.distance > self.params.avoid_trigger_distance:
             return False
         return True
+
+    def _has_ahead_pillar(self, world: WorldState) -> bool:
+        """Check if any pillar is close and roughly ahead — suppress corner for this."""
+        for p in world.pillars:
+            if abs(p.angle) < 25 and p.distance < 1000:
+                return True
+        return False
 
     def _find_avoiding_pillar(self, world: WorldState):
         """Find the pillar we're currently avoiding (by color).
