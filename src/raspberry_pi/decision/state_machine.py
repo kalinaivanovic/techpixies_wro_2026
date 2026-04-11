@@ -213,8 +213,13 @@ class StateMachine:
                 # Open mode: single-phase arc turn (unchanged)
                 speed, steering = self.corner.compute(direction, world)
             else:
-                # Obstacle mode: two-phase turn (forward into corner, reverse to face opening)
-                phase1_frames = self.params.corner_phase2_distance if self.params else 50
+                # Obstacle mode: forward-reverse-forward cycle
+                # Each phase runs for phase_frames, then next phase starts
+                # Phase 0: forward + full turn (drive into corner)
+                # Phase 1: reverse + opposite turn (rotate to face opening)
+                # Phase 2+: forward + full turn (drive into next corridor)
+                #   → exit happens via _is_corner_cleared when front opens up
+                phase_frames = self.params.corner_phase2_distance if self.params else 50
                 rev_speed = self.params.recovery_reverse_speed if self.params else 50
 
                 if direction == "LEFT":
@@ -225,19 +230,27 @@ class StateMachine:
                     rev_steer = STEERING_CENTER - self.corner.turn_offset  # full left
 
                 if self._corner_phase == 0:
-                    # Phase 1: drive forward with full turn steering into the corner
+                    # Phase 0: forward + full turn
                     speed = self.corner.slow_speed
                     steering = fwd_steer
-                    if self._corner_frames >= phase1_frames:
+                    if self._corner_frames >= phase_frames:
                         self._corner_phase = 1
-                        logger.info(f"CORNER phase 1→2: reversing to face opening (frame={self._corner_frames})")
+                        self._phase2_frames = 0
+                        logger.info(f"CORNER phase 0→1: reversing (frame={self._corner_frames})")
 
-                else:
-                    # Phase 2: reverse with opposite steering to rotate and face the next corridor
-                    # This continues until _is_corner_cleared exits the CORNER state
-                    # (front > corner_exit_threshold = robot facing the opening)
+                elif self._corner_phase == 1:
+                    # Phase 1: reverse + opposite turn (fixed duration)
+                    self._phase2_frames += 1
                     speed = -rev_speed
                     steering = rev_steer
+                    if self._phase2_frames >= phase_frames:
+                        self._corner_phase = 2
+                        logger.info(f"CORNER phase 1→2: forward with turn (frame={self._corner_frames})")
+
+                else:
+                    # Phase 2: forward + full turn (exit via _is_corner_cleared)
+                    speed = self.corner.slow_speed
+                    steering = fwd_steer
 
             if self._corner_frames % 15 == 0:
                 front = world.walls.front_distance
