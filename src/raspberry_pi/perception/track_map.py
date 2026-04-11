@@ -114,11 +114,7 @@ class TrackMap:
             self.direction = "CW" if world.corner_ahead == "RIGHT" else "CCW"
             logger.info(f"TrackMap: Direction = {self.direction}")
 
-        # Cross-validate direction from lines vs corners
-        if self.line_direction and self.direction and self.line_direction != self.direction:
-            logger.warning(
-                f"TrackMap: Direction mismatch! Corner={self.direction} Lines={self.line_direction}"
-            )
+        # Direction mismatch logging disabled — too noisy, not actionable
 
         # Mapping-specific updates only run during first lap
         if not self._first_lap:
