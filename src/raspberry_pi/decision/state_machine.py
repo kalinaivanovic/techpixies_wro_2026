@@ -518,13 +518,13 @@ class StateMachine:
             # Pillar not visible — only clear if we've been avoiding long enough
             return self._avoid_frames > self._min_avoid_frames * 2
 
-        # Pillar still visible — clear only if both side AND far conditions met
-        # Side: well off to one side (large angle from center)
-        # Far: distance is increasing past clear distance
-        side_cleared = abs(our_pillar.angle) > self._clear_angle
-        far_cleared = our_pillar.distance > self._clear_distance
+        # Pillar still visible — clear if EITHER far enough OR off to the side
+        if our_pillar.distance > self._clear_distance:
+            return True  # Far enough away
+        if abs(our_pillar.angle) > self._clear_angle:
+            return True  # Well past the side of the robot
 
-        return side_cleared and far_cleared
+        return False
 
     def _update_avoid_phase(self, pillar) -> None:
         """Track pillar avoidance progress."""
