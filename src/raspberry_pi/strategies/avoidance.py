@@ -82,6 +82,17 @@ class ProportionalAvoidance(AvoidanceStrategy):
         steering = self.steering_center + (direction * offset)
         steering = max(self.steering_min, min(self.steering_max, steering))
 
+        # Wall protection: if steering toward a wall that's too close, limit steering
+        # Prevents hitting walls when avoiding pillars near corners
+        if world.walls.left_distance is not None and world.walls.right_distance is not None:
+            min_wall = 200  # mm — don't steer closer than this to a wall
+            if direction == -1 and world.walls.left_distance < min_wall:
+                # Steering left but left wall is close — limit to center or right
+                steering = max(steering, self.steering_center)
+            elif direction == 1 and world.walls.right_distance < min_wall:
+                # Steering right but right wall is close — limit to center or left
+                steering = min(steering, self.steering_center)
+
         self._log_count += 1
         if self._log_count % 10 == 1:  # Log every 10th call (~5Hz at 50Hz loop)
             logger.info(
