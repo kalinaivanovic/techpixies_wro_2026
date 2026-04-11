@@ -238,7 +238,7 @@ class TrackMap:
                     angle=pillar.angle,
                 )
                 self.pillars.append(record)
-                logger.info(f"TrackMap: Pillar {pillar.color} at {world.encoder_pos}")
+                logger.debug(f"TrackMap: Pillar {pillar.color} at {world.encoder_pos}")
 
     def _is_new_pillar(self, encoder: int, color: str) -> bool:
         for p in self.pillars:

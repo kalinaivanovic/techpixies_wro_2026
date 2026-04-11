@@ -160,9 +160,9 @@ class SensorFusion:
         if len(pillars) != self._last_pillar_count:
             if pillars:
                 for p in pillars:
-                    logger.info(f"PILLAR {p.color.upper()} dist={p.distance:.0f}mm angle={p.angle:.1f}°")
+                    logger.debug(f"PILLAR {p.color.upper()} dist={p.distance:.0f}mm angle={p.angle:.1f}°")
             else:
-                logger.info("PILLAR lost — no matches")
+                logger.debug("PILLAR lost — no matches")
             self._last_pillar_count = len(pillars)
 
         return pillars
