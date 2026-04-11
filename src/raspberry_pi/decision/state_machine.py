@@ -226,12 +226,9 @@ class StateMachine:
                         logger.info(f"CORNER phase 1→2: reversing (front={front:.0f}mm)")
 
                 elif self._corner_phase == 1:
-                    # Phase 2: reverse with opposite steering to rotate toward opening
+                    # Phase 2: reverse straight back to gain space
                     self._phase2_frames += 1
-                    if direction == "LEFT":
-                        steering = STEERING_CENTER + self.corner.turn_offset
-                    else:
-                        steering = STEERING_CENTER - self.corner.turn_offset
+                    steering = STEERING_CENTER  # Straight back, no turning
                     speed = -(self.params.recovery_reverse_speed if self.params else 40)
                     # Exit Phase 2 when front is clear enough (using exit threshold)
                     if front is not None and front > self._corner_exit_threshold:
