@@ -98,7 +98,9 @@ class StateMachine:
         self._corner_exit_threshold = 1200  # mm — front must be this clear to exit
         self._corner_direction: str | None = None  # Remember turn direction
         self._corner_min_front: float = 9999  # Track minimum front distance during turn
-        self._corner_phase = 0  # 0=approach (Phase 1), 1=rotate (Phase 2)
+        self._corner_phase = 0  # 0=approach, 1=reverse-rotate, 2=drive-forward
+        self._phase2_frames = 0
+        self._phase3_frames = 0
 
         # For recovery state (reverse-and-retry)
         self._recovery_frames = 0
@@ -211,31 +213,39 @@ class StateMachine:
                 # Open mode: single-phase arc turn (unchanged)
                 speed, steering = self.corner.compute(direction, world)
             else:
-                # Obstacle mode: two-phase stop-and-reverse
+                # Obstacle mode: three-phase stop-reverse-drive
                 front = world.walls.front_distance
-                phase2_dist = self.params.corner_phase2_distance if self.params else 600
+                phase2_dist = self.params.corner_phase2_distance if self.params else 400
 
                 if self._corner_phase == 0:
-                    # Phase 1: approach the corner wall with gentle steering
-                    # Use half the turn offset — drive more toward the wall, less arc
-                    half_offset = self.corner.turn_offset // 2
-                    if direction == "LEFT":
-                        steering = STEERING_CENTER - half_offset
-                    else:
-                        steering = STEERING_CENTER + half_offset
-                    speed = self.corner.slow_speed
+                    # Phase 1: drive into the corner with full steering
+                    speed, steering = self.corner.compute(direction, world)
                     if front is not None and front < phase2_dist:
                         self._corner_phase = 1
-                        logger.info(f"CORNER phase 1→2: rotating (front={front:.0f}mm)")
-                else:
-                    # Phase 2: reverse with opposite steering
-                    # LEFT corner → reverse + steer RIGHT → front rotates left toward opening
-                    # RIGHT corner → reverse + steer LEFT → front rotates right toward opening
+                        self._phase2_frames = 0
+                        logger.info(f"CORNER phase 1→2: reversing (front={front:.0f}mm)")
+
+                elif self._corner_phase == 1:
+                    # Phase 2: reverse with opposite steering to rotate toward opening
+                    self._phase2_frames += 1
                     if direction == "LEFT":
                         steering = STEERING_CENTER + self.corner.turn_offset
                     else:
                         steering = STEERING_CENTER - self.corner.turn_offset
                     speed = -(self.params.recovery_reverse_speed if self.params else 40)
+                    # Exit Phase 2 after enough rotation (front opens up)
+                    if front is not None and front > phase2_dist + 150:
+                        self._corner_phase = 2
+                        self._phase3_frames = 0
+                        logger.info(f"CORNER phase 2→3: driving forward (front={front:.0f}mm)")
+
+                else:
+                    # Phase 3: drive forward with full corner steering to commit to turn
+                    self._phase3_frames += 1
+                    speed, steering = self.corner.compute(direction, world)
+                    # Phase 3 runs briefly (30 frames) then normal exit check takes over
+                    if self._phase3_frames > 30:
+                        self._corner_phase = 0  # Reset — let normal exit/re-phase work
 
             if self._corner_frames % 15 == 0:
                 front = world.walls.front_distance
