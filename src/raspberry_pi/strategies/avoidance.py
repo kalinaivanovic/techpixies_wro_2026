@@ -82,23 +82,27 @@ class ProportionalAvoidance(AvoidanceStrategy):
         steering = self.steering_center + (direction * offset)
         steering = max(self.steering_min, min(self.steering_max, steering))
 
-        # Wall protection: if steering toward a wall that's too close, limit steering
-        # Prevents hitting walls when avoiding pillars near corners
+        # Wall protection: limit steering near side walls, slow down near front wall
         if world.walls.left_distance is not None and world.walls.right_distance is not None:
             min_wall = 200  # mm — don't steer closer than this to a wall
             if direction == -1 and world.walls.left_distance < min_wall:
-                # Steering left but left wall is close — limit to center or right
                 steering = max(steering, self.steering_center)
             elif direction == 1 and world.walls.right_distance < min_wall:
-                # Steering right but right wall is close — limit to center or left
                 steering = min(steering, self.steering_center)
+
+        # Slow down when front wall is close (approaching corner during avoidance)
+        speed = self.slow_speed
+        if world.walls.front_distance is not None and world.walls.front_distance < 500:
+            # Scale speed down: 500mm → full speed, 200mm → nearly stopped
+            ratio = max(0.2, (world.walls.front_distance - 200) / 300)
+            speed = int(self.slow_speed * ratio)
 
         self._log_count += 1
         if self._log_count % 10 == 1:  # Log every 10th call (~5Hz at 50Hz loop)
             logger.info(
                 f"AVOID {pillar.color.upper()} dist={pillar.distance:.0f}mm "
                 f"angle={pillar.angle:.1f}° urgency={urgency:.2f} "
-                f"→ speed={self.slow_speed} steer={steering}°"
+                f"→ speed={speed} steer={steering}°"
             )
 
-        return self.slow_speed, steering
+        return speed, steering
