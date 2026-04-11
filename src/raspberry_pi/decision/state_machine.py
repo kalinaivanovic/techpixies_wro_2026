@@ -518,11 +518,10 @@ class StateMachine:
             # Pillar not visible — only clear if we've been avoiding long enough
             return self._avoid_frames > self._min_avoid_frames * 2
 
-        # Pillar still visible — clear if EITHER far enough OR off to the side
-        if our_pillar.distance > self._clear_distance:
-            return True  # Far enough away
+        # Pillar still visible — only clear when it's well past the side of the robot
+        # Don't use distance — LIDAR distance fluctuates and causes premature exits
         if abs(our_pillar.angle) > self._clear_angle:
-            return True  # Well past the side of the robot
+            return True
 
         return False
 
