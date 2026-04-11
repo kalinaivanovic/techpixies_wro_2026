@@ -228,11 +228,13 @@ class StateMachine:
                         self._corner_phase = 1
                         logger.info(f"CORNER phase 1→2: rotating (front={front:.0f}mm)")
                 else:
-                    # Phase 2: reverse with opposite steering to face next corridor
+                    # Phase 2: reverse with SAME steering direction
+                    # LEFT corner → reverse + steer LEFT → rear goes right, front rotates left toward opening
+                    # RIGHT corner → reverse + steer RIGHT → rear goes left, front rotates right toward opening
                     if direction == "LEFT":
-                        steering = STEERING_CENTER + self.corner.turn_offset
-                    else:
                         steering = STEERING_CENTER - self.corner.turn_offset
+                    else:
+                        steering = STEERING_CENTER + self.corner.turn_offset
                     speed = -(self.params.recovery_reverse_speed if self.params else 40)
 
             if self._corner_frames % 15 == 0:
