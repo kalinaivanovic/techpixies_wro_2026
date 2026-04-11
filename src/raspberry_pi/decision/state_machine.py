@@ -343,7 +343,10 @@ class StateMachine:
                 logger.info(f"Transition: AVOID_PILLAR -> WALL_FOLLOW (after {self._avoid_frames} frames)")
                 self.state = RobotState.WALL_FOLLOW
                 self._avoiding_pillar = None
-                self._wall_follow_start_encoder = world.encoder_pos
+                # NOTE: Do NOT reset _wall_follow_start_encoder here.
+                # Pillar avoidance is a brief excursion within the same WALL_FOLLOW
+                # segment — resetting would prevent corner detection from accumulating
+                # the required suppression distance.
                 self._corner_suppressed_frames = (
                     self.params.post_pillar_corner_suppression if self.params else 30
                 )
@@ -403,10 +406,10 @@ class StateMachine:
                 if return_to == RobotState.AVOID_PILLAR:
                     self.state = RobotState.WALL_FOLLOW  # Re-detect pillar fresh
                     self._avoid_frames = 0
-                    self._wall_follow_start_encoder = world.encoder_pos
+                    # Don't reset wall_follow_start_encoder — keep accumulating
                 elif return_to == RobotState.WALL_FOLLOW:
                     self.state = RobotState.WALL_FOLLOW  # Resume wall following
-                    self._wall_follow_start_encoder = world.encoder_pos
+                    # Don't reset wall_follow_start_encoder — keep accumulating
                 else:
                     self.state = RobotState.CORNER
                     self._corner_frames = 0
