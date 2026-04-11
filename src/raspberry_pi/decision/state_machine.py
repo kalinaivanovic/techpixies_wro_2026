@@ -165,9 +165,8 @@ class StateMachine:
             self._recovery_reverse_speed = self.params.recovery_reverse_speed
             self._recovery_escalate = self.params.recovery_escalate
 
-        # Update direction from track map
-        if self.direction is None and track_map.direction:
-            self.direction = track_map.direction
+        # Direction is set from state machine's own corner detection, not TrackMap
+        # TrackMap's direction can be wrong from false corner detections
 
         # Check state transitions
         blocking_angle = self.params.blocking_angle if self.params else 35.0
