@@ -84,7 +84,7 @@ class StateMachine:
         self._avoiding_pillar: str | None = None  # Color being avoided
         self._avoid_phase = 0  # 0=approach, 1=passing, 2=returning
         self._avoid_frames = 0  # How many frames in AVOID_PILLAR
-        self._min_avoid_frames = 50  # Stay in avoidance at least this many frames (~1s at 50Hz)
+        self._min_avoid_frames = 25  # Stay in avoidance at least this many frames (~0.5s at 50Hz)
 
         # Clearance: pillar must be this far to the side OR this far away to be "cleared"
         # Robot is 200mm wide — at 300mm distance, half-width is arctan(100/300)=18°
@@ -311,9 +311,9 @@ class StateMachine:
                 )
 
             # Priority 2: Corner detected
-            # Suppressed after recent corner exit, after pillar avoidance, or if any pillar visible
+            # Suppressed after recent corner exit, after pillar avoidance, or if close blocking pillar
             elif (not corner_suppressed
-                  and (is_open or len(world.pillars) == 0)
+                  and (is_open or not self._has_close_pillar(world, blocking_angle))
                   and world.is_corner_approaching):
                 self.state = RobotState.CORNER
                 self._corner_frames = 0
