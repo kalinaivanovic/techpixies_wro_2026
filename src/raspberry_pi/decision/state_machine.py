@@ -98,6 +98,7 @@ class StateMachine:
         self._corner_exit_threshold = 1200  # mm — front must be this clear to exit
         self._corner_direction: str | None = None  # Remember turn direction
         self._corner_min_front: float = 9999  # Track minimum front distance during turn
+        self._corner_phase = 0  # 0=approach (Phase 1), 1=rotate (Phase 2)
 
         # For recovery state (reverse-and-retry)
         self._recovery_frames = 0
@@ -204,15 +205,39 @@ class StateMachine:
                 self.direction = "CW" if self._corner_direction == "RIGHT" else "CCW"
 
             direction = self._corner_direction or "RIGHT"
-            speed, steering = self.corner.compute(direction, world)
+            is_open = self.params and self.params.challenge_mode == "open"
+
+            if is_open:
+                # Open mode: single-phase arc turn (unchanged)
+                speed, steering = self.corner.compute(direction, world)
+            else:
+                # Obstacle mode: two-phase stop-and-reverse
+                front = world.walls.front_distance
+                wall_dist = self.params.wall_collision_distance if self.params else 300
+
+                if self._corner_phase == 0:
+                    # Phase 1: approach the corner wall with steering
+                    speed, steering = self.corner.compute(direction, world)
+                    if front is not None and front < wall_dist:
+                        self._corner_phase = 1
+                        logger.info(f"CORNER phase 1→2: rotating (front={front:.0f}mm)")
+                else:
+                    # Phase 2: reverse with opposite steering to face next corridor
+                    if direction == "LEFT":
+                        steering = STEERING_CENTER + self.corner.turn_offset
+                    else:
+                        steering = STEERING_CENTER - self.corner.turn_offset
+                    speed = -(self.params.recovery_reverse_speed if self.params else 40)
+
             if self._corner_frames % 15 == 0:
                 front = world.walls.front_distance
+                phase_str = f" phase={self._corner_phase}" if not is_open else ""
                 logger.info(
                     f"CORNER: dir={direction} steer={steering}° speed={speed} "
-                    f"front={front:.0f}mm frame={self._corner_frames}"
+                    f"front={front:.0f}mm frame={self._corner_frames}{phase_str}"
                     if front else
                     f"CORNER: dir={direction} steer={steering}° speed={speed} "
-                    f"front=None frame={self._corner_frames}"
+                    f"front=None frame={self._corner_frames}{phase_str}"
                 )
             return speed, steering
 
@@ -271,6 +296,7 @@ class StateMachine:
                 self._corner_frames = 0
                 self._recovery_attempts = 0
                 self._corner_min_front = 9999
+                self._corner_phase = 0
                 # Count this as a real corner (suppression already filtered false ones)
                 self.corner_count += 1
                 self._last_corner_entry_encoder = encoder
@@ -379,18 +405,21 @@ class StateMachine:
                     f"Transition: CORNER -> WALL_FOLLOW "
                     f"(corners={self.corner_count})"
                 )
-            # Stuck against wall? Trigger recovery based on front distance
+            # Stuck against wall? Trigger recovery (open mode only)
+            # In obstacle mode, Phase 2 handles the reverse-rotate internally
             else:
-                front = world.walls.front_distance
-                wall_collision_dist = self.params.wall_collision_distance if self.params else 250
-                if front is not None and front < wall_collision_dist:
-                    self.state = RobotState.RECOVERY
-                    self._recovery_frames = 0
-                    self._recovery_attempts += 1
-                    self._recovery_return_state = RobotState.CORNER
-                    logger.info(
-                        f"Transition: CORNER -> RECOVERY "
-                        f"(wall at {front:.0f}mm, attempt {self._recovery_attempts})"
+                is_open_corner = self.params and self.params.challenge_mode == "open"
+                if is_open_corner:
+                    front = world.walls.front_distance
+                    wall_collision_dist = self.params.wall_collision_distance if self.params else 250
+                    if front is not None and front < wall_collision_dist:
+                        self.state = RobotState.RECOVERY
+                        self._recovery_frames = 0
+                        self._recovery_attempts += 1
+                        self._recovery_return_state = RobotState.CORNER
+                        logger.info(
+                            f"Transition: CORNER -> RECOVERY "
+                            f"(wall at {front:.0f}mm, attempt {self._recovery_attempts})"
                     )
 
         elif self.state == RobotState.RECOVERY:
