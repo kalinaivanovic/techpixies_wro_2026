@@ -216,8 +216,14 @@ class StateMachine:
                 phase2_dist = self.params.corner_phase2_distance if self.params else 600
 
                 if self._corner_phase == 0:
-                    # Phase 1: approach the corner wall with full steering
-                    speed, steering = self.corner.compute(direction, world)
+                    # Phase 1: approach the corner wall with gentle steering
+                    # Use half the turn offset — drive more toward the wall, less arc
+                    half_offset = self.corner.turn_offset // 2
+                    if direction == "LEFT":
+                        steering = STEERING_CENTER - half_offset
+                    else:
+                        steering = STEERING_CENTER + half_offset
+                    speed = self.corner.slow_speed
                     if front is not None and front < phase2_dist:
                         self._corner_phase = 1
                         logger.info(f"CORNER phase 1→2: rotating (front={front:.0f}mm)")
