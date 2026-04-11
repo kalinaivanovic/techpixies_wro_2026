@@ -202,12 +202,11 @@ class StateMachine:
             return speed, steering
 
         elif self.state == RobotState.CORNER:
-            # Vote on direction during first 10 frames (obstacle mode only)
-            # In obstacle mode, robot may be angled from pillar avoidance — first frame can be wrong
+            # Vote on direction during first 10 frames to overcome initial angle error
             is_open = self.params and self.params.challenge_mode == "open"
-            if not is_open and self._corner_frames < 10 and world.corner_ahead and hasattr(self, '_corner_dir_votes'):
+            if self._corner_frames < 10 and world.corner_ahead and hasattr(self, '_corner_dir_votes'):
                 self._corner_dir_votes[world.corner_ahead] = self._corner_dir_votes.get(world.corner_ahead, 0) + 1
-            if not is_open and self._corner_frames == 10 and hasattr(self, '_corner_dir_votes'):
+            if self._corner_frames == 10 and hasattr(self, '_corner_dir_votes'):
                 votes = self._corner_dir_votes
                 if votes.get("LEFT", 0) > votes.get("RIGHT", 0):
                     self._corner_direction = "LEFT"
