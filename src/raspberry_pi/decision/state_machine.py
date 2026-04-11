@@ -303,6 +303,10 @@ class StateMachine:
                 p = None  # Too far — wait until closer
             if p and not is_open and world.is_corner_approaching:
                 p = None  # Corner takes priority in obstacle mode — avoid pillar after turn
+            if p and not is_open:
+                front = world.walls.front_distance
+                if front is not None and front < 600:
+                    p = None  # Too close to front wall — don't steer, risk hitting wall
             if p:
                 self.state = RobotState.AVOID_PILLAR
                 self._avoiding_pillar = p.color
