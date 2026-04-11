@@ -130,6 +130,10 @@ class SensorFusion:
                 if i in used_objects:
                     continue
 
+                # Skip wall-sized objects — pillars are small (~50mm wide)
+                if hasattr(obj, 'width_mm') and obj.width_mm > PILLAR_SIZE_MAX:
+                    continue
+
                 # Convert LIDAR angle to camera reference
                 # LIDAR: 0=forward, 90=right, 270=left
                 # Camera: 0=center, positive=right, negative=left
