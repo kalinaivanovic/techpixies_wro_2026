@@ -202,12 +202,23 @@ class StateMachine:
             return speed, steering
 
         elif self.state == RobotState.CORNER:
-            # Direction is locked at entry. Set track direction from first successful corner.
+            # Vote on direction during first 10 frames (obstacle mode only)
+            # In obstacle mode, robot may be angled from pillar avoidance — first frame can be wrong
+            is_open = self.params and self.params.challenge_mode == "open"
+            if not is_open and self._corner_frames < 10 and world.corner_ahead and hasattr(self, '_corner_dir_votes'):
+                self._corner_dir_votes[world.corner_ahead] = self._corner_dir_votes.get(world.corner_ahead, 0) + 1
+            if not is_open and self._corner_frames == 10 and hasattr(self, '_corner_dir_votes'):
+                votes = self._corner_dir_votes
+                if votes.get("LEFT", 0) > votes.get("RIGHT", 0):
+                    self._corner_direction = "LEFT"
+                elif votes.get("RIGHT", 0) > votes.get("LEFT", 0):
+                    self._corner_direction = "RIGHT"
+                logger.info(f"CORNER direction locked: {self._corner_direction} (votes: L={votes.get('LEFT',0)} R={votes.get('RIGHT',0)})")
+
             if self.direction is None and self._corner_direction:
                 self.direction = "CW" if self._corner_direction == "RIGHT" else "CCW"
 
             direction = self._corner_direction or "RIGHT"
-            is_open = self.params and self.params.challenge_mode == "open"
 
             if is_open:
                 # Open mode: single-phase arc turn (unchanged)
@@ -326,8 +337,9 @@ class StateMachine:
                 self.corner_count += 1
                 self._last_corner_entry_encoder = encoder
                 logger.info(f"Corner #{self.corner_count} at encoder {encoder} (wall_follow_dist={wall_follow_distance})")
-                # Use detector's direction
+                # Don't lock direction yet — wait for stable reading
                 self._corner_direction = world.corner_ahead
+                self._corner_dir_votes = {"LEFT": 0, "RIGHT": 0}
                 logger.info(
                     f"Transition: WALL_FOLLOW -> CORNER "
                     f"({self._corner_direction}, track={self.direction}, detector={world.corner_ahead})"
