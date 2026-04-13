@@ -78,6 +78,8 @@ class TrackMap:
         self.section_count: int = 0  # 4 = 1 lap
         self.blue_count: int = 0  # Simple blue line counter: 4 = 1 lap
         self._last_blue_encoder: int = -5000  # Encoder at last blue detection
+        self._blue_gap_avg: float = 0.0  # Rolling average ticks between blues
+        self._blue_gap_samples: int = 0
         self.line_direction: str | None = None  # "CW" or "CCW" from line order
         self._last_line_color: str | None = None
         self._last_line_encoder: int = -1000
@@ -148,9 +150,16 @@ class TrackMap:
 
         # Simple blue line counter (most reliable for lap counting)
         if color == "blue" and abs(encoder - self._last_blue_encoder) > 8000:
-            self.blue_count += 1
-            self._last_blue_encoder = encoder
-            logger.info(f"TrackMap: Blue line #{self.blue_count} at enc={encoder}")
+            gap = encoder - self._last_blue_encoder
+            self._record_blue(encoder)
+            # If gap is ~2x the learned spacing, infer one missed blue in between
+            if (self._blue_gap_samples >= 3
+                    and gap > self._blue_gap_avg * 1.6):
+                self.blue_count += 1
+                logger.info(
+                    f"TrackMap: Inferred missed blue #{self.blue_count} "
+                    f"(gap={gap}, avg={self._blue_gap_avg:.0f})"
+                )
 
         if color is None:
             # Gap between lines — if we saw a single color, it was a partial sighting
@@ -187,6 +196,20 @@ class TrackMap:
 
         self._last_line_color = color
         self._last_line_encoder = encoder
+
+    def _record_blue(self, encoder: int) -> None:
+        """Count a detected blue line and update rolling gap average."""
+        prev = self._last_blue_encoder
+        self.blue_count += 1
+        self._last_blue_encoder = encoder
+        logger.info(f"TrackMap: Blue line #{self.blue_count} at enc={encoder}")
+        # Only update average with "normal" gaps so outliers don't skew it
+        if prev > 0:
+            gap = encoder - prev
+            if self._blue_gap_samples == 0 or gap < self._blue_gap_avg * 1.6:
+                n = self._blue_gap_samples
+                self._blue_gap_avg = (self._blue_gap_avg * n + gap) / (n + 1)
+                self._blue_gap_samples += 1
 
     def _update_corners(self, world: WorldState) -> None:
         if world.corner_ahead is None:
