@@ -80,7 +80,7 @@ def start_robot(mode):
 
 
 def stop_robot():
-    """Stop running robot program gracefully."""
+    """Stop running robot program gracefully and re-enable wifi."""
     global robot_process
 
     if robot_process and robot_process.poll() is None:
@@ -91,6 +91,9 @@ def stop_robot():
         except subprocess.TimeoutExpired:
             robot_process.kill()
         robot_process = None
+
+    subprocess.run(["sudo", "rfkill", "unblock", "wifi"], check=False)
+    print("Wifi re-enabled")
 
 
 def cleanup(signum=None, frame=None):
