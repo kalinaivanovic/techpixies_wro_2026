@@ -168,28 +168,24 @@ class SensorFusion:
         return pillars
 
     def _detect_floor_line(self, blobs: list[ColorBlob]) -> str | None:
-        """Detect orange/blue floor line in bottom portion of frame."""
+        """Detect orange/blue floor line in bottom portion of frame.
+
+        Uses the blob's BOTTOM edge (y + height/2) against the Y threshold.
+        A real floor line always extends to near the bottom of the frame,
+        even when it's so close that its bounding-box center sits high up.
+        """
         y_thresh = self.camera.height * self.camera.params.line_y_fraction
         area_thresh = self.camera.params.line_min_contour_area
 
         candidates = [b for b in blobs if b.color in ("orange", "blue")]
         line_blobs = [
             b for b in candidates
-            if b.y > y_thresh and b.area >= area_thresh
+            if (b.y + b.height // 2) > y_thresh and b.area >= area_thresh
         ]
-
-        # Log any candidate that got rejected so tuning is visible
-        if candidates and not line_blobs:
-            for b in candidates:
-                logger.info(
-                    f"FLOOR-LINE reject: {b.color} y={b.y} (>{y_thresh:.0f}?) "
-                    f"area={b.area} (>={area_thresh}?)"
-                )
 
         if not line_blobs:
             return None
 
-        # Return color of largest qualifying blob
         largest = max(line_blobs, key=lambda b: b.area)
         return largest.color
 
