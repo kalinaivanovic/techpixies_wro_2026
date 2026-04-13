@@ -146,11 +146,12 @@ class TrackMap:
         color = world.floor_line
         encoder = world.encoder_pos
 
-        # Simple blue line counter (most reliable for lap counting)
-        if color == "blue" and abs(encoder - self._last_blue_encoder) > 8000:
+        # Count any floor line (orange OR blue) with shared dedup so both
+        # colors at the same corner register as one event. 4 events = 1 lap.
+        if color in ("blue", "orange") and abs(encoder - self._last_blue_encoder) > 8000:
             self.blue_count += 1
             self._last_blue_encoder = encoder
-            logger.info(f"TrackMap: Blue line #{self.blue_count} at enc={encoder}")
+            logger.info(f"TrackMap: Line #{self.blue_count} ({color}) at enc={encoder}")
 
         if color is None:
             # Gap between lines — if we saw a single color, it was a partial sighting
