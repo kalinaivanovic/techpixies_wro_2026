@@ -138,6 +138,9 @@ class WebServer:
             try:
                 status["state"] = self.controller.state_machine.state.name
                 status["lap"] = self.controller.state_machine.lap_count
+                status["blue_count"] = getattr(
+                    self.controller.track_map, "blue_count", 0
+                ) if getattr(self.controller, "track_map", None) else 0
                 status["encoder"] = self.controller.motor.encoder
                 status["speed"] = self.controller.motor.speed
                 status["steering"] = self.controller.motor.steering
