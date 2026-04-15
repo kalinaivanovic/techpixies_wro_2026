@@ -116,6 +116,7 @@ class Parameters:
 
     # Wall collision avoidance (reverse when about to hit wall)
     wall_collision_distance: int = 250  # mm — reverse if front wall closer than this
+    outer_wall_collision_distance: int = 120  # mm — reverse if outer side wall closer than this during a turn
 
     # Recovery (reverse-and-retry when stuck)
     recovery_reverse_frames: int = 25  # frames to reverse (~0.5s)
