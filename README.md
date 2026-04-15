@@ -1,4 +1,4 @@
-# WRO 2025 Future engineers - Inženjerski dokument 
+# WRO 2026 Future engineers - Inženjerski dokument 
 
 ## O timu:
 
@@ -15,7 +15,7 @@ Mentor: Mladen Janković
 
 Kategorija: Future Engineers
 
-Naš tim je učestvovao prošle godine na takmičenju WRO... Učestvovale smo i kao tim na battle bots takmičenju.... U prethodnom periodu, članovi tima su bili učesnici na WRO i FLL takmičenjima kao predstavnici svojih osnovnih škola.
+Naš tim je učestvovao prošle godine na takmičenju WRO u senior kategoriji. Učestvovale smo i kao tim na takmičenju Battle Bots Arena. U prethodnom periodu, članovi tima su bili učesnici na WRO i FLL takmičenjima kao predstavnici svojih osnovnih škola. 
 
 ## Naši ciljevi
 
