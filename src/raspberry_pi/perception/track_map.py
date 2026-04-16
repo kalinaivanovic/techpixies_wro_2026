@@ -114,11 +114,7 @@ class TrackMap:
             self.direction = "CW" if world.corner_ahead == "RIGHT" else "CCW"
             logger.info(f"TrackMap: Direction = {self.direction}")
 
-        # Cross-validate direction from lines vs corners
-        if self.line_direction and self.direction and self.line_direction != self.direction:
-            logger.warning(
-                f"TrackMap: Direction mismatch! Corner={self.direction} Lines={self.line_direction}"
-            )
+        # Direction mismatch logging disabled — too noisy, not actionable
 
         # Mapping-specific updates only run during first lap
         if not self._first_lap:
@@ -150,11 +146,12 @@ class TrackMap:
         color = world.floor_line
         encoder = world.encoder_pos
 
-        # Simple blue line counter (most reliable for lap counting)
-        if color == "blue" and abs(encoder - self._last_blue_encoder) > 5000:
+        # Count any floor line (orange OR blue) with shared dedup so both
+        # colors at the same corner register as one event. 4 events = 1 lap.
+        if color in ("blue", "orange") and abs(encoder - self._last_blue_encoder) > 8000:
             self.blue_count += 1
             self._last_blue_encoder = encoder
-            logger.info(f"TrackMap: Blue line #{self.blue_count} at enc={encoder}")
+            logger.info(f"TrackMap: Line #{self.blue_count} ({color}) at enc={encoder}")
 
         if color is None:
             # Gap between lines — if we saw a single color, it was a partial sighting
@@ -238,7 +235,7 @@ class TrackMap:
                     angle=pillar.angle,
                 )
                 self.pillars.append(record)
-                logger.info(f"TrackMap: Pillar {pillar.color} at {world.encoder_pos}")
+                logger.debug(f"TrackMap: Pillar {pillar.color} at {world.encoder_pos}")
 
     def _is_new_pillar(self, encoder: int, color: str) -> bool:
         for p in self.pillars:

@@ -168,9 +168,8 @@ class StateMachine:
             self._recovery_reverse_speed = self.params.recovery_reverse_speed
             self._recovery_escalate = self.params.recovery_escalate
 
-        # Update direction from track map
-        if self.direction is None and track_map.direction:
-            self.direction = track_map.direction
+        # Direction is set from state machine's own corner detection, not TrackMap
+        # TrackMap's direction can be wrong from false corner detections
 
         # Check state transitions
         blocking_angle = self.params.blocking_angle if self.params else 35.0
@@ -434,21 +433,40 @@ class StateMachine:
                     f"Transition: CORNER -> WALL_FOLLOW "
                     f"(corners={self.corner_count})"
                 )
-            # Stuck against wall? Trigger recovery (open mode only)
-            # In obstacle mode, Phase 2 handles the reverse-rotate internally
+            # Stuck against wall? Trigger recovery based on front OR outer side.
+            # In obstacle mode, Phase 2 handles front-wall internally, so only
+            # check front in open mode. Outer-side check runs in both modes.
             else:
+                front = world.walls.front_distance
+                wall_collision_dist = self.params.wall_collision_distance if self.params else 250
                 is_open_corner = self.params and self.params.challenge_mode == "open"
-                if is_open_corner:
-                    front = world.walls.front_distance
-                    wall_collision_dist = self.params.wall_collision_distance if self.params else 250
-                    if front is not None and front < wall_collision_dist:
-                        self.state = RobotState.RECOVERY
-                        self._recovery_frames = 0
-                        self._recovery_attempts += 1
-                        self._recovery_return_state = RobotState.CORNER
-                        logger.info(
-                            f"Transition: CORNER -> RECOVERY "
-                            f"(wall at {front:.0f}mm, attempt {self._recovery_attempts})"
+
+                # Outer-side check: during a right turn, the outer wall is on
+                # the robot's left, so walls.left_distance tracks it. Catches
+                # front-outside overhang clipping even when front reads clear.
+                if self._corner_direction == "RIGHT":
+                    outer = world.walls.left_distance
+                elif self._corner_direction == "LEFT":
+                    outer = world.walls.right_distance
+                else:
+                    outer = None
+                outer_collision_dist = (self.params.outer_wall_collision_distance
+                                        if self.params else 120)
+
+                hit_front = (is_open_corner and front is not None
+                             and front < wall_collision_dist)
+                hit_outer = outer is not None and outer < outer_collision_dist
+
+                if hit_front or hit_outer:
+                    self.state = RobotState.RECOVERY
+                    self._recovery_frames = 0
+                    self._recovery_attempts += 1
+                    self._recovery_return_state = RobotState.CORNER
+                    reason = (f"front={front:.0f}mm" if hit_front
+                              else f"outer={outer:.0f}mm")
+                    logger.info(
+                        f"Transition: CORNER -> RECOVERY "
+                        f"({reason}, attempt {self._recovery_attempts})"
                     )
 
         elif self.state == RobotState.RECOVERY:

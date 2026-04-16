@@ -117,7 +117,8 @@ class Parameters:
     corner_suppression_ticks: int = 4000  # encoder ticks — no re-entry after corner exit
 
     # Wall collision avoidance (reverse when about to hit wall)
-    wall_collision_distance: int = 250  # mm — reverse if front wall closer than this (pillar avoidance)
+    wall_collision_distance: int = 250  # mm — reverse if front wall closer than this
+    outer_wall_collision_distance: int = 120  # mm — reverse if outer side wall closer than this during a turn
     corner_phase2_distance: int = 600  # mm — trigger Phase 2 reverse-rotate in obstacle corners
 
     # Recovery (reverse-and-retry when stuck)

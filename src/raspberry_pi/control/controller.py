@@ -106,6 +106,17 @@ class Controller:
                 params=self.params,
             )
 
+            # Warm up sensors: consume scans for a few seconds so LIDAR stabilizes
+            # before we start driving. Motor stays stopped during warm-up.
+            logger.info("Warming up sensors...")
+            self.motor.drive(0, 90)
+            warmup_end = asyncio.get_event_loop().time() + 3.0
+            while asyncio.get_event_loop().time() < warmup_end:
+                self.fusion.update()
+                await asyncio.sleep(0.05)
+            self.motor.reset_encoder()
+            logger.info("Warm-up complete")
+
             # Start race
             self.state_machine.start()
             self._running = True
