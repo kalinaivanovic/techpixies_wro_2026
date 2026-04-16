@@ -216,15 +216,6 @@ class StateMachine:
             if self.direction is None and self._corner_direction:
                 self.direction = "CW" if self._corner_direction == "RIGHT" else "CCW"
 
-            # Once track direction is locked, force _corner_direction to match.
-            # This prevents the voting block above from flipping direction on
-            # subsequent corners where the rotating LIDAR can misread the new
-            # corridor as the opposite direction.
-            if self.direction == "CW":
-                self._corner_direction = "RIGHT"
-            elif self.direction == "CCW":
-                self._corner_direction = "LEFT"
-
             direction = self._corner_direction or "RIGHT"
 
             if is_open:
