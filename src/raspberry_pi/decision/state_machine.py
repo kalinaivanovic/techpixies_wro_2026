@@ -201,17 +201,22 @@ class StateMachine:
             return speed, steering
 
         elif self.state == RobotState.CORNER:
-            # Vote on direction during first 10 frames to overcome initial angle error
+            # Vote on direction during first 10 frames — ONLY for the first
+            # corner, when self.direction is not yet locked. On subsequent
+            # corners the locked track direction is authoritative; voting can
+            # mid-turn flip the direction because the rotating LIDAR sees the
+            # new corridor as an "opposite" opening.
             is_open = self.params and self.params.challenge_mode == "open"
-            if self._corner_frames < 10 and world.corner_ahead and hasattr(self, '_corner_dir_votes'):
-                self._corner_dir_votes[world.corner_ahead] = self._corner_dir_votes.get(world.corner_ahead, 0) + 1
-            if self._corner_frames == 10 and hasattr(self, '_corner_dir_votes'):
-                votes = self._corner_dir_votes
-                if votes.get("LEFT", 0) > votes.get("RIGHT", 0):
-                    self._corner_direction = "LEFT"
-                elif votes.get("RIGHT", 0) > votes.get("LEFT", 0):
-                    self._corner_direction = "RIGHT"
-                logger.info(f"CORNER direction locked: {self._corner_direction} (votes: L={votes.get('LEFT',0)} R={votes.get('RIGHT',0)})")
+            if self.direction is None:
+                if self._corner_frames < 10 and world.corner_ahead and hasattr(self, '_corner_dir_votes'):
+                    self._corner_dir_votes[world.corner_ahead] = self._corner_dir_votes.get(world.corner_ahead, 0) + 1
+                if self._corner_frames == 10 and hasattr(self, '_corner_dir_votes'):
+                    votes = self._corner_dir_votes
+                    if votes.get("LEFT", 0) > votes.get("RIGHT", 0):
+                        self._corner_direction = "LEFT"
+                    elif votes.get("RIGHT", 0) > votes.get("LEFT", 0):
+                        self._corner_direction = "RIGHT"
+                    logger.info(f"CORNER direction locked: {self._corner_direction} (votes: L={votes.get('LEFT',0)} R={votes.get('RIGHT',0)})")
 
             if self.direction is None and self._corner_direction:
                 self.direction = "CW" if self._corner_direction == "RIGHT" else "CCW"
@@ -343,12 +348,15 @@ class StateMachine:
                     f"({self._corner_direction}, track={self.direction}, detector={world.corner_ahead})"
                 )
 
-            # Priority 3: Parking (obstacle mode only, lap 3 + parking visible)
-            elif not is_open and self.lap_count >= 3 and world.is_parking_visible:
-                self.state = RobotState.PARKING
-                if self.parking is not None:
-                    self.parking.reset()
-                logger.info("Transition: WALL_FOLLOW -> PARKING")
+            # Priority 3: Parking — disabled for competition. We don't have a
+            # working parking strategy and entering PARKING with parking=None
+            # would stop the robot forever. Magenta markers are just avoided
+            # passively by normal wall-following.
+            # elif not is_open and self.lap_count >= 3 and world.is_parking_visible:
+            #     self.state = RobotState.PARKING
+            #     if self.parking is not None:
+            #         self.parking.reset()
+            #     logger.info("Transition: WALL_FOLLOW -> PARKING")
 
             # Check if line counting detected a new lap (even between corners)
             line_laps = track_map.line_lap_count
