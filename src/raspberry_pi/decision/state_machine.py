@@ -201,22 +201,17 @@ class StateMachine:
             return speed, steering
 
         elif self.state == RobotState.CORNER:
-            # Vote on direction during first 10 frames — ONLY for the first
-            # corner, when self.direction is not yet locked. On subsequent
-            # corners the locked track direction is authoritative; voting can
-            # mid-turn flip the direction because the rotating LIDAR sees the
-            # new corridor as an "opposite" opening.
+            # Vote on direction during first 10 frames to overcome initial angle error
             is_open = self.params and self.params.challenge_mode == "open"
-            if self.direction is None:
-                if self._corner_frames < 10 and world.corner_ahead and hasattr(self, '_corner_dir_votes'):
-                    self._corner_dir_votes[world.corner_ahead] = self._corner_dir_votes.get(world.corner_ahead, 0) + 1
-                if self._corner_frames == 10 and hasattr(self, '_corner_dir_votes'):
-                    votes = self._corner_dir_votes
-                    if votes.get("LEFT", 0) > votes.get("RIGHT", 0):
-                        self._corner_direction = "LEFT"
-                    elif votes.get("RIGHT", 0) > votes.get("LEFT", 0):
-                        self._corner_direction = "RIGHT"
-                    logger.info(f"CORNER direction locked: {self._corner_direction} (votes: L={votes.get('LEFT',0)} R={votes.get('RIGHT',0)})")
+            if self._corner_frames < 10 and world.corner_ahead and hasattr(self, '_corner_dir_votes'):
+                self._corner_dir_votes[world.corner_ahead] = self._corner_dir_votes.get(world.corner_ahead, 0) + 1
+            if self._corner_frames == 10 and hasattr(self, '_corner_dir_votes'):
+                votes = self._corner_dir_votes
+                if votes.get("LEFT", 0) > votes.get("RIGHT", 0):
+                    self._corner_direction = "LEFT"
+                elif votes.get("RIGHT", 0) > votes.get("LEFT", 0):
+                    self._corner_direction = "RIGHT"
+                logger.info(f"CORNER direction locked: {self._corner_direction} (votes: L={votes.get('LEFT',0)} R={votes.get('RIGHT',0)})")
 
             if self.direction is None and self._corner_direction:
                 self.direction = "CW" if self._corner_direction == "RIGHT" else "CCW"
