@@ -130,6 +130,10 @@ class SensorFusion:
                 if i in used_objects:
                     continue
 
+                # Skip wall-sized objects — pillars are small (~50mm wide)
+                if hasattr(obj, 'width_mm') and obj.width_mm > PILLAR_SIZE_MAX:
+                    continue
+
                 # Convert LIDAR angle to camera reference
                 # LIDAR: 0=forward, 90=right, 270=left
                 # Camera: 0=center, positive=right, negative=left
@@ -160,25 +164,32 @@ class SensorFusion:
         if len(pillars) != self._last_pillar_count:
             if pillars:
                 for p in pillars:
-                    logger.info(f"PILLAR {p.color.upper()} dist={p.distance:.0f}mm angle={p.angle:.1f}°")
+                    logger.debug(f"PILLAR {p.color.upper()} dist={p.distance:.0f}mm angle={p.angle:.1f}°")
             else:
-                logger.info("PILLAR lost — no matches")
+                logger.debug("PILLAR lost — no matches")
             self._last_pillar_count = len(pillars)
 
         return pillars
 
     def _detect_floor_line(self, blobs: list[ColorBlob]) -> str | None:
-        """Detect orange/blue floor line in bottom portion of frame."""
+        """Detect orange/blue floor line in bottom portion of frame.
+
+        Uses the blob's BOTTOM edge (y + height/2) against the Y threshold.
+        A real floor line always extends to near the bottom of the frame,
+        even when it's so close that its bounding-box center sits high up.
+        """
+        y_thresh = self.camera.height * self.camera.params.line_y_fraction
+        area_thresh = self.camera.params.line_min_contour_area
+
+        candidates = [b for b in blobs if b.color in ("orange", "blue")]
         line_blobs = [
-            b for b in blobs
-            if b.color in ("orange", "blue")
-            and b.y > self.camera.height * self.camera.params.line_y_fraction
-            and b.area >= self.camera.params.line_min_contour_area
+            b for b in candidates
+            if (b.y + b.height // 2) > y_thresh and b.area >= area_thresh
         ]
+
         if not line_blobs:
             return None
 
-        # Return color of largest qualifying blob
         largest = max(line_blobs, key=lambda b: b.area)
         return largest.color
 

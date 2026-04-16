@@ -105,6 +105,8 @@ class Parameters:
     avoid_steer_min: int = 45  # Minimum turn when pillar detected
     avoid_steer_max: int = 80  # Maximum turn when pillar very close
     blocking_angle: float = 35.0  # Degrees from center — pillar within this is "blocking"
+    avoid_trigger_distance: int = 800  # mm — ignore pillars farther than this
+    post_pillar_corner_suppression: int = 30  # frames to suppress corner detection after pillar avoidance
 
     # Corner detection and handling
     corner_threshold: int = 500  # mm — front wall distance to enter corner state
@@ -116,6 +118,8 @@ class Parameters:
 
     # Wall collision avoidance (reverse when about to hit wall)
     wall_collision_distance: int = 250  # mm — reverse if front wall closer than this
+    outer_wall_collision_distance: int = 120  # mm — reverse if outer side wall closer than this during a turn
+    corner_phase2_distance: int = 600  # mm — trigger Phase 2 reverse-rotate in obstacle corners
 
     # Recovery (reverse-and-retry when stuck)
     recovery_reverse_frames: int = 25  # frames to reverse (~0.5s)

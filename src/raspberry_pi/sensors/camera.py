@@ -352,10 +352,11 @@ class Camera:
         mask_magenta = cv2.inRange(hsv, ml, mu)
         blobs.extend(self._find_blobs(mask_magenta, "magenta", min_area))
 
-        # Detect orange (floor lines)
-        ol, ou = self._range("orange")
-        mask_orange = cv2.inRange(hsv, ol, ou)
-        blobs.extend(self._find_blobs(mask_orange, "orange", min_area))
+        # Orange detection disabled — overlaps with red, causes false pillar detections
+        # Only blue lines are used for lap counting
+        # ol, ou = self._range("orange")
+        # mask_orange = cv2.inRange(hsv, ol, ou)
+        # blobs.extend(self._find_blobs(mask_orange, "orange", min_area))
 
         # Detect blue (floor lines)
         bl, bu = self._range("blue")

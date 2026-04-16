@@ -98,6 +98,9 @@ class StateMachine:
         self._corner_exit_threshold = 1200  # mm — front must be this clear to exit
         self._corner_direction: str | None = None  # Remember turn direction
         self._corner_min_front: float = 9999  # Track minimum front distance during turn
+        self._corner_phase = 0  # 0=approach, 1=reverse-rotate, 2=drive-forward
+        self._phase2_frames = 0
+        self._phase3_frames = 0
 
         # For recovery state (reverse-and-retry)
         self._recovery_frames = 0
@@ -165,9 +168,8 @@ class StateMachine:
             self._recovery_reverse_speed = self.params.recovery_reverse_speed
             self._recovery_escalate = self.params.recovery_escalate
 
-        # Update direction from track map
-        if self.direction is None and track_map.direction:
-            self.direction = track_map.direction
+        # Direction is set from state machine's own corner detection, not TrackMap
+        # TrackMap's direction can be wrong from false corner detections
 
         # Check state transitions
         blocking_angle = self.params.blocking_angle if self.params else 35.0
@@ -199,20 +201,75 @@ class StateMachine:
             return speed, steering
 
         elif self.state == RobotState.CORNER:
-            # Direction is locked at entry. Set track direction from first successful corner.
+            # Vote on direction during first 10 frames to overcome initial angle error
+            is_open = self.params and self.params.challenge_mode == "open"
+            if self._corner_frames < 10 and world.corner_ahead and hasattr(self, '_corner_dir_votes'):
+                self._corner_dir_votes[world.corner_ahead] = self._corner_dir_votes.get(world.corner_ahead, 0) + 1
+            if self._corner_frames == 10 and hasattr(self, '_corner_dir_votes'):
+                votes = self._corner_dir_votes
+                if votes.get("LEFT", 0) > votes.get("RIGHT", 0):
+                    self._corner_direction = "LEFT"
+                elif votes.get("RIGHT", 0) > votes.get("LEFT", 0):
+                    self._corner_direction = "RIGHT"
+                logger.info(f"CORNER direction locked: {self._corner_direction} (votes: L={votes.get('LEFT',0)} R={votes.get('RIGHT',0)})")
+
             if self.direction is None and self._corner_direction:
                 self.direction = "CW" if self._corner_direction == "RIGHT" else "CCW"
 
             direction = self._corner_direction or "RIGHT"
-            speed, steering = self.corner.compute(direction, world)
+
+            if is_open:
+                # Open mode: single-phase arc turn (unchanged)
+                speed, steering = self.corner.compute(direction, world)
+            else:
+                # Obstacle mode: forward-reverse-forward cycle
+                # Each phase runs for phase_frames, then next phase starts
+                # Phase 0: forward + full turn (drive into corner)
+                # Phase 1: reverse + opposite turn (rotate to face opening)
+                # Phase 2+: forward + full turn (drive into next corridor)
+                #   → exit happens via _is_corner_cleared when front opens up
+                phase_frames = self.params.corner_phase2_distance if self.params else 50
+                rev_speed = self.params.recovery_reverse_speed if self.params else 50
+
+                if direction == "LEFT":
+                    fwd_steer = STEERING_CENTER - self.corner.turn_offset  # full left
+                    rev_steer = STEERING_CENTER + self.corner.turn_offset  # full right
+                else:
+                    fwd_steer = STEERING_CENTER + self.corner.turn_offset  # full right
+                    rev_steer = STEERING_CENTER - self.corner.turn_offset  # full left
+
+                if self._corner_phase == 0:
+                    # Phase 0: forward + full turn
+                    speed = self.corner.slow_speed
+                    steering = fwd_steer
+                    if self._corner_frames >= phase_frames:
+                        self._corner_phase = 1
+                        self._phase2_frames = 0
+                        logger.info(f"CORNER phase 0→1: reversing (frame={self._corner_frames})")
+
+                elif self._corner_phase == 1:
+                    # Phase 1: reverse + opposite turn (fixed duration)
+                    self._phase2_frames += 1
+                    speed = -rev_speed
+                    steering = rev_steer
+                    if self._phase2_frames >= phase_frames:
+                        self._corner_phase = 2
+                        logger.info(f"CORNER phase 1→2: forward with turn (frame={self._corner_frames})")
+
+                else:
+                    # Phase 2: forward + full turn (exit via _is_corner_cleared)
+                    speed = self.corner.slow_speed
+                    steering = fwd_steer
+
             if self._corner_frames % 15 == 0:
                 front = world.walls.front_distance
+                phase_str = f" phase={self._corner_phase}" if not is_open else ""
                 logger.info(
                     f"CORNER: dir={direction} steer={steering}° speed={speed} "
-                    f"front={front:.0f}mm frame={self._corner_frames}"
+                    f"front={front:.0f}mm frame={self._corner_frames}{phase_str}"
                     if front else
                     f"CORNER: dir={direction} steer={steering}° speed={speed} "
-                    f"front=None frame={self._corner_frames}"
+                    f"front=None frame={self._corner_frames}{phase_str}"
                 )
             return speed, steering
 
@@ -248,8 +305,13 @@ class StateMachine:
                                  or self._corner_suppressed_frames > 0)
 
             # Priority 1: Pillar detected (obstacle mode only)
+            # BUT: don't enter avoidance if corner is also approaching — handle corner first
             is_open = self.params and self.params.challenge_mode == "open"
             p = None if is_open else world.blocking_pillar(blocking_angle)
+            if p and self.params and p.distance > self.params.avoid_trigger_distance:
+                p = None  # Too far — wait until closer
+            # Wall protection in avoidance.compute() handles wall proximity
+            # No corner_zone skip — let avoidance run with wall-aware steering
             if p:
                 self.state = RobotState.AVOID_PILLAR
                 self._avoiding_pillar = p.color
@@ -261,27 +323,21 @@ class StateMachine:
                 )
 
             # Priority 2: Corner detected
-            # Suppressed after recent corner exit (encoder-based) or near pillars
+            # Suppressed after recent corner exit or after pillar avoidance
             elif (not corner_suppressed
-                  and (is_open or not world.blocking_pillar(blocking_angle))
                   and world.is_corner_approaching):
                 self.state = RobotState.CORNER
                 self._corner_frames = 0
                 self._recovery_attempts = 0
                 self._corner_min_front = 9999
+                self._corner_phase = 0
                 # Count this as a real corner (suppression already filtered false ones)
                 self.corner_count += 1
                 self._last_corner_entry_encoder = encoder
                 logger.info(f"Corner #{self.corner_count} at encoder {encoder} (wall_follow_dist={wall_follow_distance})")
-                # Use track direction to determine corner direction (more reliable)
-                # CW track → all corners are RIGHT, CCW → all LEFT
-                if self.direction == "CW":
-                    self._corner_direction = "RIGHT"
-                elif self.direction == "CCW":
-                    self._corner_direction = "LEFT"
-                else:
-                    # Direction not yet known — use detector's guess
-                    self._corner_direction = world.corner_ahead
+                # Don't lock direction yet — wait for stable reading
+                self._corner_direction = world.corner_ahead
+                self._corner_dir_votes = {"LEFT": 0, "RIGHT": 0}
                 logger.info(
                     f"Transition: WALL_FOLLOW -> CORNER "
                     f"({self._corner_direction}, track={self.direction}, detector={world.corner_ahead})"
@@ -341,14 +397,21 @@ class StateMachine:
                 logger.info(f"Transition: AVOID_PILLAR -> WALL_FOLLOW (after {self._avoid_frames} frames)")
                 self.state = RobotState.WALL_FOLLOW
                 self._avoiding_pillar = None
-                self._wall_follow_start_encoder = world.encoder_pos
-                self._corner_suppressed_frames = 150  # Suppress corner for ~3s after pillar
+                # NOTE: Do NOT reset _wall_follow_start_encoder here.
+                # Pillar avoidance is a brief excursion within the same WALL_FOLLOW
+                # segment — resetting would prevent corner detection from accumulating
+                # the required suppression distance.
+                self._corner_suppressed_frames = (
+                    self.params.post_pillar_corner_suppression if self.params else 30
+                )
 
         elif self.state == RobotState.CORNER:
             self._corner_frames += 1
             # Pillar overrides corner (obstacle mode only)
             is_open = self.params and self.params.challenge_mode == "open"
             p = None if is_open else world.blocking_pillar(blocking_angle)
+            if p and self.params and p.distance > self.params.avoid_trigger_distance:
+                p = None  # Too far — stay in corner
             if p:
                 self.state = RobotState.AVOID_PILLAR
                 self._avoiding_pillar = p.color
@@ -370,18 +433,40 @@ class StateMachine:
                     f"Transition: CORNER -> WALL_FOLLOW "
                     f"(corners={self.corner_count})"
                 )
-            # Stuck against wall? Trigger recovery based on front distance
+            # Stuck against wall? Trigger recovery based on front OR outer side.
+            # In obstacle mode, Phase 2 handles front-wall internally, so only
+            # check front in open mode. Outer-side check runs in both modes.
             else:
                 front = world.walls.front_distance
                 wall_collision_dist = self.params.wall_collision_distance if self.params else 250
-                if front is not None and front < wall_collision_dist:
+                is_open_corner = self.params and self.params.challenge_mode == "open"
+
+                # Outer-side check: during a right turn, the outer wall is on
+                # the robot's left, so walls.left_distance tracks it. Catches
+                # front-outside overhang clipping even when front reads clear.
+                if self._corner_direction == "RIGHT":
+                    outer = world.walls.left_distance
+                elif self._corner_direction == "LEFT":
+                    outer = world.walls.right_distance
+                else:
+                    outer = None
+                outer_collision_dist = (self.params.outer_wall_collision_distance
+                                        if self.params else 120)
+
+                hit_front = (is_open_corner and front is not None
+                             and front < wall_collision_dist)
+                hit_outer = outer is not None and outer < outer_collision_dist
+
+                if hit_front or hit_outer:
                     self.state = RobotState.RECOVERY
                     self._recovery_frames = 0
                     self._recovery_attempts += 1
                     self._recovery_return_state = RobotState.CORNER
+                    reason = (f"front={front:.0f}mm" if hit_front
+                              else f"outer={outer:.0f}mm")
                     logger.info(
                         f"Transition: CORNER -> RECOVERY "
-                        f"(wall at {front:.0f}mm, attempt {self._recovery_attempts})"
+                        f"({reason}, attempt {self._recovery_attempts})"
                     )
 
         elif self.state == RobotState.RECOVERY:
@@ -397,7 +482,10 @@ class StateMachine:
                 if return_to == RobotState.AVOID_PILLAR:
                     self.state = RobotState.WALL_FOLLOW  # Re-detect pillar fresh
                     self._avoid_frames = 0
-                    self._wall_follow_start_encoder = world.encoder_pos
+                    # Don't reset wall_follow_start_encoder — keep accumulating
+                elif return_to == RobotState.WALL_FOLLOW:
+                    self.state = RobotState.WALL_FOLLOW  # Resume wall following
+                    # Don't reset wall_follow_start_encoder — keep accumulating
                 else:
                     self.state = RobotState.CORNER
                     self._corner_frames = 0
@@ -421,6 +509,22 @@ class StateMachine:
             return False
         return front > self._corner_exit_threshold
 
+    def _has_close_pillar(self, world: WorldState, blocking_angle: float) -> bool:
+        """Check if there's a blocking pillar within the avoidance trigger distance."""
+        p = world.blocking_pillar(blocking_angle)
+        if p is None:
+            return False
+        if self.params and p.distance > self.params.avoid_trigger_distance:
+            return False
+        return True
+
+    def _has_ahead_pillar(self, world: WorldState) -> bool:
+        """Check if any pillar is close and roughly ahead — suppress corner for this."""
+        for p in world.pillars:
+            if abs(p.angle) < 25 and p.distance < 1000:
+                return True
+        return False
+
     def _find_avoiding_pillar(self, world: WorldState):
         """Find the pillar we're currently avoiding (by color).
 
@@ -435,11 +539,10 @@ class StateMachine:
     def _is_pillar_cleared(self, world: WorldState) -> bool:
         """Check if the pillar we're avoiding is safely past the robot body.
 
-        The robot is 150mm wide. A pillar at 30° from center could still
-        be in the path of the robot's edge. We require the pillar to be:
-        - Gone from view entirely (for at least 2× min frames), OR
-        - Far enough to the side (>55° from center), OR
-        - Far enough away (>600mm)
+        The pillar is "cleared" only when it's BOTH off to the side AND
+        either far away or no longer visible. Requiring both prevents
+        premature exit when the robot rotates fast and the angle changes
+        even though the pillar is still physically in front.
         """
         # Find the pillar we're avoiding by color
         our_pillar = None
@@ -452,11 +555,10 @@ class StateMachine:
             # Pillar not visible — only clear if we've been avoiding long enough
             return self._avoid_frames > self._min_avoid_frames * 2
 
-        # Pillar still visible — is it safely past?
-        if our_pillar.distance > self._clear_distance:
-            return True  # Far enough away
+        # Pillar still visible — only clear when it's well past the side of the robot
+        # Don't use distance — LIDAR distance fluctuates and causes premature exits
         if abs(our_pillar.angle) > self._clear_angle:
-            return True  # Well past the side of the robot
+            return True
 
         return False
 

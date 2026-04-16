@@ -85,10 +85,13 @@ class LidarCornerDetection(CornerStrategy):
 
         diff = left - right
         if abs(diff) < self.direction_margin:
-            return self._last_direction or "RIGHT"
+            result = self._last_direction or "RIGHT"
+            logger.info(f"CORNER DETECT: front={front:.0f} L={left:.0f} R={right:.0f} diff={diff:.0f} margin → {result}")
+            return result
 
         result = "LEFT" if diff > 0 else "RIGHT"
         self._last_direction = result
+        logger.info(f"CORNER DETECT: front={front:.0f} L={left:.0f} R={right:.0f} diff={diff:.0f} → {result}")
         return result
 
     def compute(self, direction: str, world: WorldState) -> tuple[int, int]:

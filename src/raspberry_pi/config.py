@@ -103,7 +103,7 @@ ANGLE_MATCH_THRESHOLD = 40.0
 
 # Expected pillar size range (mm)
 PILLAR_SIZE_MIN = 30.0
-PILLAR_SIZE_MAX = 1000.0
+PILLAR_SIZE_MAX = 200.0  # Real pillar is 50mm, LIDAR dilation makes it ~150mm max
 
 # =============================================================================
 # WEB INTERFACE
